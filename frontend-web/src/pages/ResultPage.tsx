@@ -1,3 +1,5 @@
+import { TargetWorkflows } from '../features/projects/TargetWorkflows';
+import { sourceLanguageLabel } from '../features/projects/sourceLanguage';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/common/Card';
@@ -21,7 +23,7 @@ export function ResultPage() {
   const { projectId = '' } = useParams();
   const [params] = useSearchParams();
   const language = params.get('language');
-  const { project, isLoading: projectLoading, error: projectError } = useProject(projectId);
+  const { project, isLoading: projectLoading, error: projectError } = useProject(projectId, language, true);
   return <><PageHeader title="Kết quả" description="Xem và tải tệp thuyết minh do máy chủ tạo." />
     {projectLoading ? <Spinner label="Đang tải dự án" /> : projectError ? <ErrorState title="Không thể tải dự án" description={projectError} /> : !project ? <Card><ErrorState title="Không tìm thấy dự án" description="Dự án không tồn tại hoặc bạn không có quyền truy cập." /></Card> : <GuardedResult project={project} language={language} />}
     <div className="result-actions"><Link className="button button--secondary button--md" to="/projects">Quay lại dự án</Link><Link className="button button--primary button--md" to="/history">Xem thư viện</Link></div>
@@ -29,26 +31,33 @@ export function ResultPage() {
 }
 
 function GuardedResult({ project, language }: { project: Project; language: string | null }) {
+  if (project.targetWorkflows && !language) return <TargetWorkflows project={project} />;
   const access = resolveWorkflowRouteAccess(project.workflow, 'RESULT', language);
   if (!access.allowed) return <WorkflowRouteRecovery projectId={project.id} access={access} />;
-  return <ResultWorkspace project={project} language={access.targetLanguage ?? undefined} />;
+  return <ResultWorkspace key={project.id + (access.targetLanguage ?? '')} project={project} language={access.targetLanguage ?? undefined} />;
 }
 
 function ResultWorkspace({ project, language }: { project: Project; language?: string }) {
   const navigate = useNavigate();
-  const { result, mediaUrl, loading, error, reload } = useResult(project.id, language);
-  const [variants, setVariants] = useState<LanguageVariant[]>([]);
+  const { result, mediaUrl, loading, error, reload } = useResult(project.id, language, project.mediaType);
+  const [legacyVariants, setVariants] = useState<LanguageVariant[]>([]);
+  const variants = project.targetWorkflows
+    ? project.targetWorkflows.map(target => ({ projectId: project.id, language: target.targetLanguage, name: sourceLanguageLabel(target.targetLanguage), flag: '', hasResult: target.workflow.mediaType === 'AUDIO' ? target.workflow.artifact.narrationReady : target.workflow.artifact.resultReady, status: target.status, isCurrent: target.targetLanguage === language }))
+    : legacyVariants;
   const [addLanguageModalOpen, setAddLanguageModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
+    if (project.targetWorkflows) {
+      return () => { active = false; };
+    }
     void resultService.getLanguageVariants(project.id, language).then((items) => {
       if (active) setVariants(items);
     });
     return () => {
       active = false;
     };
-  }, [project.id, language]);
+  }, [project.id, project.targetWorkflows, language]);
 
   const renderLanguageBar = () => (
     <div className="result-language-bar">
@@ -111,7 +120,8 @@ function ResultWorkspace({ project, language }: { project: Project; language?: s
           open={addLanguageModalOpen}
           projectId={project.id}
           projectName={project.name}
-          existingLanguages={variants.map((v) => v.language)}
+          sourceLanguage={project.sourceLanguage}
+          existingLanguages={variants.filter((v) => v.hasResult).map((v) => v.language)}
           onClose={() => setAddLanguageModalOpen(false)}
         />
       </>
@@ -226,7 +236,8 @@ function ResultWorkspace({ project, language }: { project: Project; language?: s
         open={addLanguageModalOpen}
         projectId={project.id}
         projectName={project.name}
-        existingLanguages={variants.map((v) => v.language)}
+          sourceLanguage={project.sourceLanguage}
+        existingLanguages={variants.filter((v) => v.hasResult).map((v) => v.language)}
         onClose={() => setAddLanguageModalOpen(false)}
       />
     </>

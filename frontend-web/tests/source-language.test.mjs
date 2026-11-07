@@ -96,9 +96,10 @@ test('summary exposes three source statuses, never fabricates detected language;
 
 function creationFixture() {
   const h = hooks(); const uploads = []
-  const Component = loader({ ...common, react: h.react, 'react-router-dom': { Link: 'Link' }, uploadService: { uploadProjectMedia: async input => { uploads.push(input) } } })('pages/NewProjectPlaceholder.tsx').NewProjectPlaceholder
+  const Component = loader({ ...common, react: h.react, api: { api: async () => ({ maxFileSize: 200 * 1024 * 1024, maxDurationSeconds: 3600 }) }, 'react-router-dom': { Link: 'Link' }, uploadService: { uploadProjectMedia: async input => { uploads.push(input) } } })('pages/NewProjectPlaceholder.tsx').NewProjectPlaceholder
   const render = () => h.render(() => Component())
-  function fill() {
+  async function fill() {
+    await flush()
     find(render(), node => node.type === 'Input').props.onChange({ target: { value: 'Dự án thử nghiệm' } })
     find(render(), node => node.props?.id === 'media-file').props.onChange({ target: { files: [{ name: 'test.mp4', size: 1024, type: 'video/mp4' }] } })
   }
@@ -108,7 +109,7 @@ test('create UI defaults AUTO, omits hint, preserves other fields and does not s
   const fixture = creationFixture(); let tree = fixture.render()
   assert.equal(find(tree, node => node.props?.id === 'source-language-mode').props.value, 'AUTO')
   assert.equal(find(tree, node => node.props?.id === 'source-language'), undefined)
-  fixture.fill(); tree = fixture.render()
+  await fixture.fill(); tree = fixture.render()
   const start = find(tree, node => node.type === 'Button' && text(node).includes('Tạo dự án'))
   assert.equal(start.props.disabled, false); await start.props.onClick()
   assert.equal(fixture.uploads.length, 1); assert.equal(fixture.uploads[0].sourceLanguageMode, 'AUTO')
@@ -120,7 +121,7 @@ for (const language of ['vi', 'en', 'ja', 'ko', 'zh']) test(`create MANUAL ${lan
   find(fixture.render(), node => node.props?.id === 'source-language-mode').props.onChange({ target: { value: 'MANUAL' } })
   assert.equal(find(fixture.render(), node => node.props?.id === 'source-language').props.value, 'vi')
   find(fixture.render(), node => node.props?.id === 'source-language').props.onChange({ target: { value: language } })
-  fixture.fill()
+  await fixture.fill()
   await find(fixture.render(), node => node.type === 'Button' && text(node).includes('Tạo dự án')).props.onClick()
   assert.equal(fixture.uploads[0].sourceLanguage, language); assert.equal(fixture.uploads[0].sourceLanguageMode, 'MANUAL')
 })

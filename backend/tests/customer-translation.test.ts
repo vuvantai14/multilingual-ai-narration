@@ -11,6 +11,7 @@ process.env.JWT_ACCESS_SECRET = randomBytes(48).toString('hex'); process.env.JWT
 process.env.JWT_ACCESS_EXPIRES_IN = '15m'; process.env.JWT_REFRESH_EXPIRES_IN = '1d'; process.env.GEMINI_API_KEY = '';
 const { GroupTranslationService, groupTranslationService } = await import('../src/services/translation/group-translation.service.js');
 const { GroupDraftStore } = await import('../src/services/translation/group-draft-store.js');
+const { targetOperations } = await import('../src/services/target-operation.service.js');
 const { customerAttempts, CustomerAttemptStore } = await import('../src/services/translation/customer-attempt.js');
 const { Project } = await import('../src/models/Project.js'); const { User } = await import('../src/models/User.js');
 const { Transcript } = await import('../src/models/Transcript.js'); const { TranscriptSegment } = await import('../src/models/TranscriptSegment.js');
@@ -22,6 +23,8 @@ const { TranslationProviderFailure } = await import('../src/services/translation
 const owner = '1'.repeat(24), other = '2'.repeat(24), admin = '3'.repeat(24), project = '4'.repeat(24), transcript = '5'.repeat(24);
 const query = (value: unknown): any => ({ select() { return this; }, session() { return this; }, then(resolve: any, reject: any) { return Promise.resolve(value).then(resolve, reject); } });
 test('normal service authorizes dynamically, derives plan, durable replay/restart, stale/running job/disabled reject without provider', async t => {
+  // This fixture tests the durable attempt ledger, not the project CAS adapter.
+  t.mock.method(targetOperations, 'run', async (_project, _owner, _target, _kind, work) => work());
   let sourceRevision = 1, running = false, english = false, calls = 0, headerText = 'Synthetic source only.';
   t.mock.method(mongoose, 'connect', () => { throw Error('DATABASE_FORBIDDEN'); });
   t.mock.method(Project, 'findOne', (f: any) => query(f.userId === owner && [project, other].includes(f._id) ? { _id: f._id, sourceLanguage: 'vi', status: 'TRANSCRIBED' } : null));

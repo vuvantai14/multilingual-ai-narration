@@ -3,6 +3,10 @@ export const GEMINI_VOICE_CATALOG = Object.freeze([
   Object.freeze({ provider: 'gemini', providerVoiceId: 'Fenrir', name: 'Fenrir', gender: 'MALE', description: 'Gemini Fenrir — Excitable', isActive: true }),
 ] as const);
 
+export const GEMINI_VOICE_LANGUAGES = Object.freeze(['en', 'ja', 'ko', 'zh'] as const);
+export const GEMINI_VOICE_DOCUMENTS = Object.freeze(GEMINI_VOICE_LANGUAGES.flatMap(languageCode =>
+  GEMINI_VOICE_CATALOG.map(voice => Object.freeze({ ...voice, languageCode }))));
+
 export class GeminiCatalogError extends Error {}
 export function catalogMode(args: string[]): 'dry-run' | 'apply' {
   if (!args.length || (args.length === 1 && args[0] === '--dry-run')) return 'dry-run';
@@ -26,7 +30,7 @@ export function planGeminiVoices(rows: readonly ExistingVoice[], languageId: str
   let existing = 0;
   const conflicts: string[] = [];
   for (const voice of GEMINI_VOICE_CATALOG) {
-    const matches = rows.filter(r => String(r.languageId) === languageId && r.provider.trim().toLowerCase() === 'gemini' && r.providerVoiceId.trim().toLowerCase() === voice.providerVoiceId.toLowerCase());
+    const matches = rows.filter(r => String(r.languageId) === languageId && typeof r.provider === 'string' && typeof r.providerVoiceId === 'string' && r.provider.trim().toLowerCase() === 'gemini' && r.providerVoiceId.trim().toLowerCase() === voice.providerVoiceId.toLowerCase());
     if (!matches.length) planned.push(voice);
     else if (matches.length === 1 && matches[0]!.provider === voice.provider && matches[0]!.providerVoiceId === voice.providerVoiceId && matches[0]!.name === voice.name && matches[0]!.gender === voice.gender && matches[0]!.isActive === true) existing++;
     else conflicts.push(voice.providerVoiceId);

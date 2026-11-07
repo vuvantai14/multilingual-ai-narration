@@ -7,7 +7,7 @@ import { AppError } from '../utils/app-error.js';
 export const getSourceMediaFile = async (projectId: string) => {
   const media = await Media.findOne({ projectId });
   if (!media) throw new AppError(404, 'MEDIA_NOT_FOUND', 'Không tìm thấy phương tiện nguồn.');
-  if (!['audio/mpeg', 'video/mp4'].includes(media.mimeType)) throw new AppError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Định dạng phương tiện này chưa được hỗ trợ phát.');
+  if (!['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/webm', 'video/mp4', 'video/webm', 'video/quicktime'].includes(media.mimeType)) throw new AppError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Định dạng phương tiện này chưa được hỗ trợ phát.');
   try {
     const path = await realpath(resolveStoredFile(media.storagePath));
     const root = await realpath(uploadRoot);

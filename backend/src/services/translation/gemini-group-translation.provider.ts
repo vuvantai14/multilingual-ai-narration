@@ -1,3 +1,4 @@
+import { e2eInference } from '../e2e-test-run.js';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { z } from 'zod';
 import { GEMINI_TRANSLATION_MODEL, GeminiTranslationError, mapGeminiTranslationError } from './gemini-translation.provider.js';
@@ -46,7 +47,8 @@ export function mapGroupResponse(text: string | undefined, input: GroupProviderI
 }
 export class GeminiGroupTranslationProvider implements GroupProvider {
   constructor(private readonly transport?: GroupTransport) {}
-  async translate(input: GroupProviderInput, verifySource?: () => Promise<void>) {
+  async translate(input: GroupProviderInput, verifySource?: () => Promise<void>) { return e2eInference('TRANSLATION', () => this.translateInternal(input, verifySource)); }
+  private async translateInternal(input: GroupProviderInput, verifySource?: () => Promise<void>) {
     if (controlledScopeActive() || process.env.CONTROLLED_PROVIDER_MODE === 'PERMIT') throw new GeminiTranslationError('TRANSLATION_NOT_CONFIGURED'); // No unfenced fallback in execution process.
     if ((process.env.TRANSLATION_PROVIDER?.trim().toLowerCase() || 'gemini') !== 'gemini') throw new GeminiTranslationError('TRANSLATION_NOT_CONFIGURED');
     const key = process.env.GEMINI_API_KEY?.trim();

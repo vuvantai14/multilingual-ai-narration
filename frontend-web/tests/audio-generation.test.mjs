@@ -6,9 +6,12 @@ import ts from 'typescript';
 
 const root = new URL('../src/', import.meta.url);
 function load(file, dependencies = {}, suffix = '') {
+  dependencies['../features/projects/TargetWorkflows'] ??= { TargetWorkflows: 'TargetWorkflows' };
+  if (file === 'pages/GeneratePage.tsx') dependencies['../features/projects/sourceLanguage'] ??= load('features/projects/sourceLanguage.ts');
+  if (file !== 'features/projects/targetWorkflow.ts') dependencies['../projects/targetWorkflow'] ??= load('features/projects/targetWorkflow.ts');
   const exports = {};
   const source = ts.transpileModule(readFileSync(new URL(file, root), 'utf8') + suffix, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  runInNewContext(source, { exports, require: name => { if (!(name in dependencies)) throw Error(`Unexpected dependency ${name}`); return dependencies[name]; }, Date, console });
+  runInNewContext(source, { exports, require: name => { if (!(name in dependencies)) throw Error(`Unexpected dependency ${name}`); return dependencies[name]; }, Date, console, AbortController, Error });
   return exports;
 }
 const guard = load('features/projects/workflowRouteGuard.ts');
@@ -20,11 +23,11 @@ function context(mediaType = 'AUDIO', step = 'RESULT') {
   config: { projectId: 'test-only', translationId: 'translation', languageCode: 'en', voiceId: 'voice', speed: 1, translationRevision: 'rev', narrationId: 'narration' },
   transcript: { languageCode: 'vi', segments: [] }, translation: { targetLanguage: 'en', groups: [] }, voice: { name: 'Alloy' } };
 }
-function sessionHarness(initial, latest = initial) {
+function sessionHarness(initial, latest = initial, refresh = async () => {}) {
   let posts = 0, reads = 0, finish; const updates = [];
   const { processingService } = load('features/processing/processingService.ts', {
     '../../lib/api': { api: async (_path, options, retry) => { posts++; assert.equal(options.method, 'POST'); assert.equal(retry, false); return new Promise(resolve => { finish = () => resolve({ result: { id: 'result' }, idempotent: false }); }); } },
-    '../projects/projectRepository': { projectRepository: { refresh: async () => {} } }, './processingUtils': utils,
+    '../projects/projectRepository': { projectRepository: { refresh } }, './processingUtils': utils,
     './generationService': { generationService: { getContext: async () => { reads++; return latest; } } }, './generationReadiness': { generationReadiness },
   });
   return { session: processingService.createSession(initial, s => updates.push(s)), updates, posts: () => posts, reads: () => reads, finish: () => finish() };
@@ -45,6 +48,23 @@ test('VIDEO narration ready still requires its existing video processing POST; d
   assert.equal(generationReadiness(context('VIDEO', 'GENERATE')).canStart, true);
   const first = h.session.start(), second = h.session.start(); await second;
   assert.equal(h.posts(), 1); h.finish(); await first; assert.equal(h.session.getStatus().status, 'COMPLETED');
+});
+test('committed video Result is not downgraded to FAILED100% when project list GET refresh fails; no second POST', async () => {
+  const c=context('VIDEO','GENERATE'),h=sessionHarness(c,c,async()=>{throw Error('GET unavailable')})
+  const first=h.session.start();await new Promise(r=>setImmediate(r));h.finish();await first
+  assert.equal(h.session.getStatus().status,'COMPLETED');assert.equal(h.session.getStatus().progress,100)
+  assert.match(h.session.getStatus().message,/Video đã được lưu/);assert.match(h.session.getStatus().message,/không tạo lại/)
+  await h.session.retry();assert.equal(h.posts(),1)
+});
+test('generation context load exposes structured Backend error and never starts processing', async () => {
+  const updates=[]
+  const {useProcessing}=load('features/processing/useProcessing.ts',{
+    react:{useReducer:(_reducer,initial)=>[initial,patch=>updates.push(patch)],useRef:()=>({current:null}),useCallback:fn=>fn,useEffect(){}},
+    './generationService':{generationService:{getContext:async()=>{throw Error('SOURCE_LANGUAGE_UNCONFIRMED: xác nhận nguồn trước.')}}},
+    './processingService':{processingService:{createSession:()=>assert.fail('no session permitted')}},'./processingUtils':utils,
+  })
+  useProcessing('fixture','en').reload();await new Promise(r=>setImmediate(r))
+  assert.equal(updates.at(-1).loadStatus,'FAILED');assert.match(updates.at(-1).error,/SOURCE_LANGUAGE_UNCONFIRMED/)
 });
 test('missing artifact, active jobs, UNKNOWN and mismatched language block processing', async () => {
   for (const mutate of [c => { c.config.narrationId = undefined; }, c => { c.project.workflow.processing = { status: 'PROCESSING' }; }, c => { c.project.workflow.step = 'UNKNOWN'; c.project.workflow.state = 'BLOCKED'; }, c => { c.project.workflow.targetLanguage.code = 'th'; }]) {

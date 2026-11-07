@@ -1,3 +1,4 @@
+import { api } from '../lib/api'
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/common/Button'
@@ -5,13 +6,18 @@ import { Icon } from '../components/common/Icon'
 import { Card } from '../components/common/Card'
 import { Input } from '../components/common/Input'
 import { Spinner } from '../components/common/Spinner'
-import { formatFileSize, MAX_MEDIA_FILE_SIZE, validateMediaFile, validateProjectName, type UploadStatus } from '../features/projects/mediaUpload'
+import { formatFileSize, validateMediaFile, validateProjectName, type UploadStatus } from '../features/projects/mediaUpload'
 import { uploadProjectMedia } from '../features/projects/uploadService'
 import { manualSourceOptions } from '../features/projects/sourceLanguage'
 import type { LanguageCode, SourceLanguageMode } from '../features/projects/types'
 import '../styles/upload.css'
 
 export function NewProjectPlaceholder() {
+  const [limits, setLimits] = useState<{ maxFileSize: number; maxDurationSeconds: number } | null>(null)
+  const [limitsError, setLimitsError] = useState(false)
+  const [duration, setDuration] = useState<number | null>(null)
+  const createdProject = useRef<string | undefined>(undefined)
+  useEffect(() => { const c = new AbortController(); void api<{ maxFileSize: number; maxDurationSeconds: number }>('/projects/media-limits', { signal: c.signal }).then(setLimits).catch(() => { if (!c.signal.aborted) setLimitsError(true) }); return () => c.abort() }, [])
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
@@ -25,12 +31,13 @@ export function NewProjectPlaceholder() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const controllerRef = useRef<AbortController | null>(null)
+  const uploadLock = useRef(false)
   const previewUrlRef = useRef<string | null>(null)
   const dragDepth = useRef(0)
-  const validation = validateMediaFile(file && { name: file.name, size: file.size, mimeType: file.type })
+  const validation = validateMediaFile(file && { name: file.name, size: file.size, mimeType: file.type }, limits?.maxFileSize ?? 0)
   const nameError = validateProjectName(projectName)
   const busy = status === 'validating' || status === 'uploading'
-  const canUpload = !nameError && (sourceLanguageMode === 'AUTO' || Boolean(sourceLanguage)) && validation.valid && !busy && status !== 'success'
+  const canUpload = !nameError && (sourceLanguageMode === 'AUTO' || Boolean(sourceLanguage)) && limits && validation.valid && (duration === null || duration <= limits.maxDurationSeconds) && !busy && status !== 'success'
 
   useEffect(() => () => {
     controllerRef.current?.abort()
@@ -41,9 +48,10 @@ export function NewProjectPlaceholder() {
     if (!nextFile || busy) return
     controllerRef.current?.abort()
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
-    const nextValidation = validateMediaFile({ name: nextFile.name, size: nextFile.size, mimeType: nextFile.type })
+    const nextValidation = validateMediaFile({ name: nextFile.name, size: nextFile.size, mimeType: nextFile.type }, limits?.maxFileSize ?? 0)
     previewUrlRef.current = nextValidation.valid ? URL.createObjectURL(nextFile) : null
     setPreviewUrl(previewUrlRef.current)
+    setDuration(null)
     setFile(nextFile)
     setStatus('selected')
     setProgress(0)
@@ -85,8 +93,9 @@ export function NewProjectPlaceholder() {
   }
   async function startUpload() {
     setNameTouched(true)
-    const result = validateMediaFile(file && { name: file.name, size: file.size, mimeType: file.type })
-    if (nameError || !sourceLanguage || !result.valid || !file || busy) return
+    const result = validateMediaFile(file && { name: file.name, size: file.size, mimeType: file.type }, limits?.maxFileSize ?? 0)
+    if (nameError || !limits || (duration !== null && duration > limits.maxDurationSeconds) || !result.valid || !file || busy || uploadLock.current) return
+    uploadLock.current = true
     setStatus('validating')
     setUploadError(null)
     setProgress(0)
@@ -94,12 +103,12 @@ export function NewProjectPlaceholder() {
     controllerRef.current = controller
     try {
       setStatus('uploading')
-      await uploadProjectMedia({ projectName: projectName.trim(), description: description.trim(), sourceLanguageMode, ...(sourceLanguageMode === 'MANUAL' ? { sourceLanguage } : {}), file, signal: controller.signal, onProgress: setProgress })
+      await uploadProjectMedia({ projectName: projectName.trim(), description: description.trim(), sourceLanguageMode, ...(sourceLanguageMode === 'MANUAL' ? { sourceLanguage } : {}), file, signal: controller.signal, onProgress: setProgress, projectId: createdProject.current, onProjectCreated: id => { createdProject.current = id } })
       if (!controller.signal.aborted) setStatus('success')
     } catch (error) {
       if (controller.signal.aborted) setStatus('cancelled')
       else { setStatus('failed'); setUploadError(error instanceof Error ? error.message : 'Tải lên thất bại. Vui lòng thử lại.') }
-    } finally { if (controllerRef.current === controller) controllerRef.current = null }
+    } finally { uploadLock.current = false; if (controllerRef.current === controller) controllerRef.current = null }
   }
   function cancelUpload() { controllerRef.current?.abort(); setStatus('cancelled') }
 
@@ -121,10 +130,12 @@ export function NewProjectPlaceholder() {
           <div className="upload-dropzone__symbol" aria-hidden="true"><Icon name="arrow" width="32" /></div><div className="upload-dropzone__copy"><strong>Kéo thả video hoặc âm thanh vào đây</strong><span>hoặc chọn tệp từ máy tính</span></div><Button type="button" disabled={busy || status === 'success'} onClick={() => inputRef.current?.click()}>Chọn tệp</Button>
         </div> : <div className={`upload-file${validation.valid ? '' : ' upload-file--invalid'}`}>
           <div className="upload-file__head"><span className="upload-file__type">{validation.valid ? validation.mediaType === 'VIDEO' ? 'Video' : 'Âm thanh' : 'Tệp không hợp lệ'}</span><div className="upload-file__actions"><Button type="button" size="sm" variant="secondary" disabled={busy || status === 'success'} onClick={() => inputRef.current?.click()}>Thay đổi</Button><Button type="button" size="sm" variant="ghost" disabled={busy || status === 'success'} onClick={removeFile}>Xóa</Button></div></div>
-          <strong className="upload-file__name">{file.name}</strong><span className="upload-file__size">{formatFileSize(file.size)} · {validation.valid ? 'Tệp hợp lệ' : 'Tệp không hợp lệ'}</span>
-          {validation.valid && previewUrl && (validation.mediaType === 'VIDEO' ? <video className="upload-preview" src={previewUrl} controls preload="metadata" aria-label="Xem trước video đã chọn" /> : <audio className="upload-preview" src={previewUrl} controls preload="metadata" aria-label="Nghe thử âm thanh đã chọn" />)}
+          <strong className="upload-file__name">{file.name}</strong><span className="upload-file__size">{formatFileSize(file.size)}{duration !== null ? ` · ${duration.toFixed(2)} giây` : ''} · {validation.valid ? 'Backend sẽ kiểm tra nội dung khi tải lên' : 'Tệp không hợp lệ'}</span>
+          {validation.valid && previewUrl && (validation.mediaType === 'VIDEO' ? <video className="upload-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={event => { const n = event.currentTarget.duration; setDuration(Number.isFinite(n) && n > 0 ? n : null) }} aria-label="Xem trước video đã chọn" /> : <audio className="upload-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={event => { const n = event.currentTarget.duration; setDuration(Number.isFinite(n) && n > 0 ? n : null) }} aria-label="Nghe thử âm thanh đã chọn" />)}
         </div>}
-        <small id="upload-file-formats">Hỗ trợ: MP4, MOV, WEBM, MP3, WAV, M4A · Dung lượng tối đa: {formatFileSize(MAX_MEDIA_FILE_SIZE)}</small>
+        <small id="upload-file-formats">Hỗ trợ: MP4, MOV, WEBM, MP3, WAV, M4A · Dung lượng tối đa: {limits ? `${formatFileSize(limits.maxFileSize)} · Thời lượng tối đa: ${limits.maxDurationSeconds} giây` : 'Đang kiểm tra giới hạn Backend…'}</small>
+        {limitsError && <p role="alert">Không tải được giới hạn upload. Hãy tải lại trang trước khi tạo dự án.</p>}
+        {duration !== null && limits && duration > limits.maxDurationSeconds && <p role="alert">Thời lượng media vượt giới hạn xử lý.</p>}
         {file && !validation.valid && <p id="upload-file-error" className="upload-error" role="alert">{validation.error}</p>}
       </Card>
       <Card padding="lg" className="upload-form-card upload-action-card">

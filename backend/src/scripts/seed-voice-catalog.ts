@@ -2,6 +2,7 @@ import { connectDatabase, disconnectDatabase } from '../config/database.js';
 import { env } from '../config/env.js';
 import { Language } from '../models/Language.js';
 import { Voice } from '../models/Voice.js';
+import { LANGUAGE_CATALOG } from './language-catalog-data.js';
 
 const openAiVoices = [
   { providerVoiceId: 'coral', name: 'Coral', gender: 'FEMALE', description: 'OpenAI Coral (Nữ nhẹ nhàng)' },
@@ -15,7 +16,7 @@ const openAiVoices = [
 export const seedVoiceCatalog = async () => {
   const provider = process.env.TTS_PROVIDER?.trim().toLowerCase() || 'openai';
   if (provider !== 'openai') throw new Error('TTS_PROVIDER chưa phải cấu hình OpenAI.');
-  const languages = await Language.find({ isActive: true });
+  const languages = await Language.find({ isActive: true, code: { $in: LANGUAGE_CATALOG.map(language => language.code) } });
   if (!languages.length) throw new Error('Không có Language active để seed voice catalog.');
   let created = 0;
   for (const language of languages) {

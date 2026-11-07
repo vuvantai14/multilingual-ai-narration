@@ -13,7 +13,7 @@ export const projectStatusLabels = Object.freeze({
 
 export const transcriptStatusLabels = Object.freeze({
   LOADING: 'Đang tải', NOT_STARTED: 'Chưa bắt đầu', GENERATING: 'Đang tạo bản ghi',
-  READY: 'Sẵn sàng', SAVING: 'Đang lưu', SAVED: 'Đã lưu', FAILED: 'Thất bại',
+  READY: 'Sẵn sàng', SAVING: 'Đang lưu', SAVED: 'Đã lưu', FAILED: 'Thất bại', UNCERTAIN: 'Chưa xác định kết quả',
 })
 
 export const translationStatusLabels = Object.freeze({

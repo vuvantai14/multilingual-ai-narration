@@ -9,13 +9,14 @@ type TranscriptDto = { id: string; projectId: string; language: string | null; s
 const mapTranscript = (value: TranscriptDto): Transcript => ({ id: value.id, projectId: value.projectId, languageCode: value.language ?? null, sourceLanguageStatus: value.sourceLanguageStatus, fullText: value.fullText, revision: value.revision, status: 'SAVED', createdAt: value.createdAt, updatedAt: value.updatedAt, segments: value.segments.map((segment) => ({ id: `${value.id}-${segment.index}`, backendSegmentId: segment.id, sequence: segment.index + 1, startTime: segment.startTime, endTime: segment.endTime, text: segment.text })) })
 
 export const transcriptService = {
+  async executionState(projectId: string, options: Options = {}) { return api<{ state: 'NOT_STARTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'UNCERTAIN'; retryAllowed: boolean; errorCode?: string }>(`/projects/${projectId}/transcription-state`, { signal: options.signal }) },
   async getTranscript(projectId: string, options: Options = {}): Promise<Transcript | null> {
     try { const value = await api<{ transcript: TranscriptDto }>(`/projects/${projectId}/transcript`, { signal: options.signal }); return mapTranscript(value.transcript) }
     catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error }
   },
   async generateTranscript(projectId: string, options: Options = {}): Promise<Transcript> {
     requireConfirmation(window.confirm, confirmationMessages.transcript)
-    const value = await api<{ transcript: TranscriptDto }>(`/projects/${projectId}/transcription`, { method: 'POST', signal: options.signal })
+    const value = await api<{ transcript: TranscriptDto }>(`/projects/${projectId}/transcription`, { method: 'POST', signal: options.signal }, false)
     await projectRepository.refresh(); return mapTranscript(value.transcript)
   },
   async updateSegment(projectId: string, segmentId: string, text: string, expectedRevision: number, options: Options = {}): Promise<TranscriptSegmentUpdate> {

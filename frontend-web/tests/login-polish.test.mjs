@@ -11,6 +11,16 @@ test('login errors distinguish credentials, validation, network and server failu
   assert.doesNotMatch(getLoginErrorMessage(new Error('secret detail')), /secret detail/);
 });
 
+test('login distinguishes forbidden/rate-limit errors from network and internal failures without exposing diagnostics', () => {
+  for (const error of [{ status: 403 }, { code: 'ACCOUNT_BLOCKED' }]) {
+    assert.match(getLoginErrorMessage(error), /không được phép đăng nhập/);
+    assert.doesNotMatch(getLoginErrorMessage(error), /mật khẩu không đúng|Máy chủ đang/);
+  }
+  for (const error of [{ status: 429 }, { code: 'RATE_LIMIT_EXCEEDED' }]) assert.match(getLoginErrorMessage(error), /quá nhiều yêu cầu đăng nhập/);
+  assert.match(getLoginErrorMessage({ status: 500, message: 'S32_6A_READ_ONLY_WRITE_DENIED' }), /Máy chủ đang gặp sự cố/);
+  assert.doesNotMatch(getLoginErrorMessage({ status: 500, message: 'PRIVATE_DIAGNOSTIC' }), /PRIVATE_DIAGNOSTIC/);
+});
+
 test('login-only wrapper protects Register from visual overrides', async () => {
   const login = await readFile(new URL('../src/pages/LoginPlaceholder.tsx', import.meta.url), 'utf8');
   const register = await readFile(new URL('../src/pages/RegisterPlaceholder.tsx', import.meta.url), 'utf8');

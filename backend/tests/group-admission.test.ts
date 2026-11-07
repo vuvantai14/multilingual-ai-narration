@@ -106,7 +106,7 @@ test('provider failure, overflow and source revision rejection release once; no 
     assert.equal(calls, 1); assert.deepEqual(ledger.snapshot(), { active: 0, reservedCredits: 0 });
   }
 });
-test('test source policy preserves IDs/text/times/digest/coverage; default remains 98304', async () => {
+test('test source policy preserves IDs/text/times/digest/coverage and the current default byte bound', async () => {
   for (const count of [100, 1027, 2000, 5000]) {
     const s = source(count), { segments, ...header } = s;
     const rows = async function* () { yield* segments; };
@@ -116,9 +116,13 @@ test('test source policy preserves IDs/text/times/digest/coverage; default remai
       assert.deepEqual(loaded, s); assert.equal(revision(loaded), revision(s));
       assert.deepEqual(candidateGroups(loaded).flatMap(g => g.sourceSegmentIds), segments.map(s => s.id));
     } else await assert.rejects(collectBoundedSource(header, rows(), policy.sourceBytes));
-    if (count === 1027) { assert.ok(bytes > SOURCE_BYTE_LIMIT); await assert.rejects(collectBoundedSource(header, rows())); }
+    if (bytes > SOURCE_BYTE_LIMIT) await assert.rejects(collectBoundedSource(header, rows()));
+    else assert.deepEqual(await collectBoundedSource(header, rows()), s);
     console.log('ADMISSION_SOURCE', JSON.stringify({ count, bytes, accepted: bytes <= policy.sourceBytes }));
   }
+  const oversized = source(1);
+  oversized.fullText = 'x'.repeat(SOURCE_BYTE_LIMIT);
+  await assert.rejects(collectBoundedSource(oversized, (async function* () { yield* oversized.segments; })()));
   const s = source(1), { segments, ...header } = s;
   header.fullText += 'x'.repeat(policy.sourceBytes - Buffer.byteLength(JSON.stringify(s)));
   const rows = async function* () { yield* segments; };

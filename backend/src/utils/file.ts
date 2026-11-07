@@ -1,10 +1,13 @@
 import { mkdir, unlink } from 'node:fs/promises';
+import { denyUnscopedTestStorage,actualAssets } from '../services/e2e-runtime-boundary.js';
+import { e2eRunEnabled } from '../services/e2e-test-run.js';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { env } from '../config/env.js';
 
 export const uploadRoot = resolve(process.cwd(), env.uploadDir);
 
 export const ensureUploadDirectory = async (projectId: string): Promise<string> => {
+  denyUnscopedTestStorage();
   const directory = resolve(uploadRoot, 'projects', projectId);
   assertInsideUploadRoot(directory);
   await mkdir(directory, { recursive: true });
@@ -20,6 +23,7 @@ export const assertInsideUploadRoot = (target: string): void => {
 };
 
 export const safeDeleteStoredFile = async (storagePath: string): Promise<void> => {
+  if(e2eRunEnabled()){actualAssets().cleanup(resolveStoredFile(storagePath));return;}
   const target = resolveStoredFile(storagePath);
   try {
     await unlink(target);

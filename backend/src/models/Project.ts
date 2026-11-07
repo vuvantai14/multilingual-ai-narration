@@ -13,6 +13,9 @@ const projectSchema = new Schema(
       required: function (this: { get: (field: string) => unknown }) { return this.get('sourceLanguageMode') !== 'AUTO' || this.get('sourceLanguageStatus') === 'CONFIRMED'; } },
     detectedSourceLanguage: { type: String, enum: ['vi', 'en', 'ja', 'ko', 'zh', null] },
     sourceLanguageStatus: { type: String, enum: SOURCE_LANGUAGE_STATUSES },
+    // Optional, no migration/index: atomic project-wide target-operation fence.
+    targetOperation: { type: new Schema({ token: { type: String, required: true }, targetLanguage: { type: String, required: true },
+      kind: { type: String, required: true }, startedAt: { type: Date, required: true } }, { _id: false }) },
     status: { type: String, enum: PROJECT_STATUSES, required: true, default: 'DRAFT', index: true },
     progress: { type: Number, required: true, default: 0, min: 0, max: 100 },
   },

@@ -34,7 +34,11 @@ export const processingService = {
         snapshot = { ...snapshot, status: 'PROCESSING', progress: 50, currentStage: 'media', startedAt: new Date().toISOString(), message: 'Máy chủ đang ghép âm thanh thuyết minh vào video...', stages: snapshot.stages.map((stage) => stage.id === 'media' ? { ...stage, status: 'PROCESSING', progress: 0 } : stage) }; emit();
         const response = await api<{ result: { id: string }; idempotent: boolean }>(`/projects/${projectId}/process`, { method: 'POST', body: JSON.stringify({ narrationId: latest.config.narrationId }) }, false);
         snapshot = { ...snapshot, runId: response.result.id, status: 'COMPLETED', progress: 100, currentStage: null, completedAt: new Date().toISOString(), message: response.idempotent ? 'Kết quả video đã tồn tại và sẵn sàng.' : 'Video thuyết minh đã được tạo thành công.', stages: snapshot.stages.map((stage) => stage.id === 'media' ? { ...stage, status: 'COMPLETED', progress: 100 } : stage) };
-        await projectRepository.refresh(); emit();
+        emit();
+        // A failed list refresh cannot undo the server's committed Result or
+        // turn its100% success into FAILED and invite another processing POST.
+        try { await projectRepository.refresh() }
+        catch { snapshot = { ...snapshot, message: 'Video đã được lưu. Chưa cập nhật được danh sách dự án; chỉ tải lại trạng thái, không tạo lại.' }; emit() }
       } catch (error) { fail('media', error instanceof Error ? error.message : 'Không thể xử lý video.'); }
     }
     return { getStatus: () => copySnapshot(snapshot), start: begin, retry: begin, cancel: () => undefined, dispose: () => { disposed = true; } };

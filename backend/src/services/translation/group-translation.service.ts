@@ -1,3 +1,6 @@
+import { withGuardedTransaction } from '../e2e-runtime-boundary.js';
+import { guardedActualWriter } from '../e2e-runtime-boundary.js';
+import { withE2eScope } from '../e2e-test-run.js';
 import { randomUUID } from 'node:crypto';
 import mongoose, { type ClientSession } from 'mongoose';
 
@@ -26,6 +29,7 @@ import { TranslationProviderFailure, providerFailureMessage } from './provider-f
 import { ProcessingJob } from '../../models/ProcessingJob.js';
 import { assertSourceLanguageConfirmed } from '../source-language-contract.js';
 import { assertCustomerLanguages, assertCustomerTarget } from './customer-languages.js';
+import { targetOperations } from '../target-operation.service.js';
 
 function enabled() { if (process.env.GROUP_TRANSLATION_ENABLED !== 'true' && !controlledScopeActive() && !customerScopeActive()) throw new AppError(503, 'GROUP_TRANSLATION_DISABLED', 'Dịch theo cụm chưa được bật trên máy chủ.'); }
 const mismatch = () => new AppError(409, 'SOURCE_REVISION_MISMATCH', 'Bản ghi nguồn đã thay đổi. Vui lòng tải lại kế hoạch; bản nháp không được lưu.');
@@ -96,7 +100,8 @@ export class GroupTranslationService {
     if (!project) throw new AppError(404, 'PROJECT_NOT_FOUND', 'Không tìm thấy dự án.');
     assertSourceLanguageConfirmed(project);
     if (customerScopeActive() && !controlledScopeActive()) assertCustomerLanguages(project.sourceLanguage, targetLanguage, customerTranslationMethod());
-    if (!['TRANSCRIBED', 'TRANSLATED', 'FAILED'].includes(project.status)) throw new AppError(409, 'INVALID_PROJECT_STATE', 'Trạng thái dự án không cho phép dịch theo cụm.');
+    const states = customerScopeActive() && customerTranslationMethod() === 'GEMINI_SIMPLE_V1' ? ['TRANSCRIBED', 'TRANSLATED', 'FAILED', 'COMPLETED'] : ['TRANSCRIBED', 'TRANSLATED', 'FAILED'];
+    if (!states.includes(project.status)) throw new AppError(409, 'INVALID_PROJECT_STATE', 'Trạng thái dự án không cho phép dịch theo cụm.');
     if (project.sourceLanguage === targetLanguage) throw new AppError(400, 'SAME_SOURCE_TARGET_LANGUAGE', 'Ngôn ngữ đích phải khác ngôn ngữ nguồn.');
     if (!await Language.exists({ code: targetLanguage, isActive: true }).session(session)) throw new AppError(400, 'TRANSLATION_LANGUAGE_NOT_SUPPORTED', 'Ngôn ngữ đích chưa được hỗ trợ.');
     return project;
@@ -121,6 +126,12 @@ export class GroupTranslationService {
     } finally { lease?.release(); }
   }
   async preview(projectId: string, ownerId: string, body: { targetLanguage: string; sourceRevision: string; groupingVersion: string; groups: string[][]; idempotencyKey: string }) {
+    enabled();
+    // Controlled readiness is read-only, including project fence metadata.
+    if (controlledReadinessActive()) return this.previewLocked(projectId, ownerId, body);
+    return guardedActualWriter({ projectId, ownerId }, () => withE2eScope({ projectId, ownerId, targetLanguage: body.targetLanguage }, () => targetOperations.run(projectId, ownerId, body.targetLanguage, 'TRANSLATION', () => this.previewLocked(projectId, ownerId, body))), 'Translation');
+  }
+  private async previewLocked(projectId: string, ownerId: string, body: { targetLanguage: string; sourceRevision: string; groupingVersion: string; groups: string[][]; idempotencyKey: string }) {
     if (customerScopeActive() && !controlledScopeActive()) {
       const source = await this.context(projectId, ownerId, body.targetLanguage);
       assertCustomerLanguages(source.languageCode, body.targetLanguage, customerTranslationMethod());
@@ -253,7 +264,10 @@ export class GroupTranslationService {
     return boundedTranslationRecord(filter, session, this.admission);
   }
   async approve(projectId: string, ownerId: string, draftId: string, body: { outputDigest: string; reviewed: true }) {
-    const work = () => this.approveInternal(projectId, ownerId, draftId, body);
+    if (controlledReadinessActive()) throw new AppError(503, 'CONTROLLED_APPROVAL_DENIED', 'Readiness does not authorize database writes.');
+    enabled();
+    const draft = this.store.get(draftId, ownerId, projectId);
+    const work = () => guardedActualWriter({ projectId, ownerId }, () => targetOperations.run(projectId, ownerId, draft.targetLanguage, 'APPROVAL', () => this.approveInternal(projectId, ownerId, draftId, body)), 'Approval');
     return this.admission ? this.admission.operation(ownerId, work) : work();
   }
   private async approveInternal(projectId: string, ownerId: string, draftId: string, body: { outputDigest: string; reviewed: true }) {
@@ -275,11 +289,12 @@ export class GroupTranslationService {
       }
       const session = await mongoose.startSession(); let saved: (TranslationDocument & { _id: unknown }) | undefined;
       try {
-        await session.withTransaction(async () => {
+        await withGuardedTransaction(session, async () => {
           this.store.get(draftId, ownerId, projectId);
           // Claim project in the transaction: source-processing writers also update this document.
           // Concurrent changes cause write conflict/revalidation, not a stale approved translation.
-          const claimed = await Project.findOneAndUpdate({ _id: projectId, userId: ownerId, status: { $in: ['TRANSCRIBED', 'TRANSLATED', 'FAILED'] } }, { $set: { status: 'TRANSLATED' } }, { session, returnDocument: 'after' });
+          const before = await this.authorizedProject(projectId, ownerId, draft.targetLanguage, session);
+          const claimed = await Project.findOneAndUpdate({ _id: projectId, userId: ownerId, status: before.status }, { $set: { status: before.status === 'COMPLETED' ? 'COMPLETED' : 'TRANSLATED' } }, { session, returnDocument: 'after' });
           if (!claimed) throw new AppError(409, 'INVALID_PROJECT_STATE', 'Dự án đang xử lý hoặc không còn khả dụng.');
           const source = await this.context(projectId, ownerId, draft.targetLanguage, session);
           if (revision(source) !== draft.sourceRevision || source.transcriptId !== draft.transcriptId || source.transcriptRevision !== draft.transcriptRevision) throw mismatch();

@@ -11,9 +11,9 @@ const detailCss = await readFile(new URL('../src/styles/project-detail.css', imp
 const topbarSource = await readFile(new URL('../src/components/layout/Topbar.tsx', import.meta.url), 'utf8');
 
 test('create project validates required fields and sends supported description', () => {
-  assert.match(createSource, /Vui lòng chọn ngôn ngữ nguồn/);
+  assert.match(createSource, /sourceLanguageMode === 'AUTO' \|\| Boolean\(sourceLanguage\)/);
   assert.match(createSource, /htmlFor="project-description">Mô tả/);
-  assert.match(uploadSource, /JSON\.stringify\(\{ name: projectName, description, sourceLanguage \}\)/);
+  assert.match(uploadSource, /JSON\.stringify\(\{ name: projectName, description, \.\.\.source \}\)/);
 });
 
 test('web upload uses an honest indeterminate state and keeps cancellation', () => {
@@ -45,7 +45,7 @@ test('Create Project uses the approved heading, explicit primary action and acce
 });
 
 test('Create Project desktop layout stays compact without duplicating file guidance', () => {
-  assert.equal((createSource.match(/formatFileSize\(MAX_MEDIA_FILE_SIZE\)/g) ?? []).length, 1);
+  assert.equal((createSource.match(/formatFileSize\(limits.maxFileSize\)/g) ?? []).length, 1);
   assert.doesNotMatch(createSource, /upload-file--empty|Chưa có tệp nào được chọn/);
   assert.match(createSource, /<small id="upload-file-formats">Hỗ trợ:/);
   assert.match(uploadCss, /\.upload-layout \{[^}]*gap: 14px;[^}]*max-width: 1024px/s);
@@ -58,8 +58,8 @@ test('Create Project desktop layout stays compact without duplicating file guida
   assert.match(createSource, /status === 'validating'[\s\S]*className="upload-primary-actions"[\s\S]*Đang kiểm tra/);
 });
 
-test('media validation preserves supported formats and the real 500 MB limit', () => {
-  assert.equal(MAX_MEDIA_FILE_SIZE, 500 * 1024 * 1024);
+test('media validation preserves supported formats and the Backend default and server-provided limits', () => {
+  assert.equal(MAX_MEDIA_FILE_SIZE, 200 * 1024 * 1024);
   assert.deepEqual(validateMediaFile({ name: 'âm thanh thử nghiệm.mp3', size: 1024, mimeType: 'audio/mpeg' }), { valid: true, mediaType: 'AUDIO' });
   assert.deepEqual(validateMediaFile({ name: 'video.mp4', size: 1024, mimeType: 'video/mp4' }), { valid: true, mediaType: 'VIDEO' });
   assert.equal(validateMediaFile({ name: 'archive.zip', size: 1024, mimeType: 'application/zip' }).valid, false);

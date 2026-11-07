@@ -1,6 +1,6 @@
 import type { LanguageCode, SourceLanguageStatus } from '../projects/types'
 
-export type TranscriptStatus = 'LOADING' | 'NOT_STARTED' | 'GENERATING' | 'READY' | 'SAVING' | 'SAVED' | 'FAILED'
+export type TranscriptStatus = 'LOADING' | 'NOT_STARTED' | 'GENERATING' | 'READY' | 'SAVING' | 'SAVED' | 'FAILED' | 'UNCERTAIN'
 export type TranscriptSegment = {
   id: string
   backendSegmentId?: string

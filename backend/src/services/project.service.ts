@@ -1,3 +1,6 @@
+import { scopedAudit } from './e2e-runtime-boundary.js';
+import { guardedActualWriter, testProjectForOwner } from './e2e-runtime-boundary.js';
+import { e2eProjectId, e2eRunEnabled } from './e2e-test-run.js';
 import type { Types } from 'mongoose';
 import { ActivityLog } from '../models/ActivityLog.js';
 import { Media } from '../models/Media.js';
@@ -13,6 +16,7 @@ import { safeDeleteStoredFile } from '../utils/file.js';
 import { resolveProjectWorkflows } from './project-workflow.service.js';
 import { assertSourceLanguageConfirmed, sourceLanguageState, type SourceLanguageMode } from './source-language-contract.js';
 import { updateProjectSource } from './source-language.service.js';
+import { targetWorkflowReader } from './target-workflow.service.js';
 
 interface ProjectInput { name: string; description?: string; sourceLanguage?: string | null; sourceLanguageMode?: SourceLanguageMode }
 interface ListInput { search?: string; status?: ProjectStatus; page: number; limit: number }
@@ -34,7 +38,7 @@ const serializeWithWorkflow = async (projects: Array<ProjectDocument & { _id: Ty
 };
 
 const log = async (userId: string, action: string, entityId: Types.ObjectId, description: string) => {
-  try { await ActivityLog.create({ userId, action, entityType: 'Project', entityId, description }); } catch { /* best effort */ }
+  try { await scopedAudit(() => ActivityLog.create({ userId, action, entityType: 'Project', entityId, description })); } catch { /* best effort */ }
 };
 
 const owned = async (id: string, userId: string) => {
@@ -44,13 +48,18 @@ const owned = async (id: string, userId: string) => {
 };
 
 export const create = async (userId: string, input: ProjectInput) => {
+  const scopedProject = testProjectForOwner(userId);
   const mode = input.sourceLanguageMode ?? (input.sourceLanguage ? 'MANUAL' : 'AUTO');
-  const project = await Project.create({ ...input, sourceLanguageMode: mode,
-    sourceLanguage: mode === 'AUTO' ? null : input.sourceLanguage,
-    sourceLanguageStatus: mode === 'AUTO' ? 'PENDING_DETECTION' : 'CONFIRMED',
-    description: input.description ?? '', userId, status: 'DRAFT', progress: 0 });
-  void log(userId, 'PROJECT_CREATED', project._id, 'Dự án đã được tạo.');
-  return serialize(project);
+  const testProjectId = e2eProjectId(userId);
+  if (scopedProject && scopedProject !== testProjectId) throw new AppError(409, 'E2E_SCOPE_MISMATCH', 'Test project mismatch.');
+  return guardedActualWriter({ projectId: testProjectId ?? '', ownerId: userId }, async () => {
+    const project = await Project.create({ ...input, ...(testProjectId ? { _id: testProjectId } : {}), sourceLanguageMode: mode,
+      sourceLanguage: mode === 'AUTO' ? null : input.sourceLanguage,
+      sourceLanguageStatus: mode === 'AUTO' ? 'PENDING_DETECTION' : 'CONFIRMED',
+      description: input.description ?? '', userId, status: 'DRAFT', progress: 0 });
+    void log(userId, 'PROJECT_CREATED', project._id, 'Dự án đã được tạo.');
+    return serialize(project);
+  }, 'Project');
 };
 
 export const list = async (userId: string, input: ListInput) => {
@@ -70,7 +79,7 @@ export const list = async (userId: string, input: ListInput) => {
 export const get = async (id: string, userId: string) => {
   const project = await owned(id, userId);
   const [serialized] = await serializeWithWorkflow([project]);
-  return serialized;
+  return { ...serialized, targetWorkflows: await targetWorkflowReader.read(id, project) };
 };
 
 export const update = async (id: string, userId: string, input: Partial<ProjectInput>) => {
@@ -98,6 +107,7 @@ export const remove = async (id: string, userId: string) => {
 };
 
 export const branchLanguage = async (sourceProjectId: string, userId: string, targetLanguage: string) => {
+  if (e2eRunEnabled()) throw new AppError(409, 'E2E_BRANCH_DENIED', 'Test run cannot branch an existing project.');
   const sourceProject = await owned(sourceProjectId, userId);
   assertSourceLanguageConfirmed(sourceProject);
   const media = await Media.findOne({ projectId: sourceProject._id });

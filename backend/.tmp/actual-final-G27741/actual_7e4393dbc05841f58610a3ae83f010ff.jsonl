@@ -1,0 +1,15 @@
+{"event":"ACTUAL_SCOPE_99b9f32b082702cddc5b4d8560fe72c3c906892ff980e21e4e93f6de0a35615d","at":"2026-11-06T03:33:05.727Z"}
+{"event":"ACTUAL_READY","at":"2026-11-06T03:33:05.729Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-06T03:33:05.729Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-06T03:33:06.216Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_a9fc51c923735588ee80c539edee2b3c56ced8d1b11ef013fb86890f06a7aa1c","at":"2026-11-06T03:33:06.227Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_b8a1129c9419b4164b9102206aaa47a43a62d2774fc767adbef0f10e87fb5f69","at":"2026-11-06T03:33:06.231Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-06T03:33:06.232Z"}
+{"event":"ACTUAL_WRITER_Media","at":"2026-11-06T03:33:06.652Z"}
+{"event":"STORAGE_CLAIM_actual-input-once","at":"2026-11-06T03:33:06.667Z"}
+{"event":"STORAGE_DONE_actual-input-once","at":"2026-11-06T03:33:06.671Z"}
+{"event":"ACTUAL_NATIVE_Media_media_findOneAndUpdate_8278800296a776530d161a57d55b3eb494885e2860a217bbd55752f3b6d20c67","at":"2026-11-06T03:33:06.681Z"}
+{"event":"ACTUAL_NATIVE_Media_projects_updateOne_cb4e1e1888aac1b1feca11639adcfb026217aa0eaea04ac6fa43aadfb19b6230","at":"2026-11-06T03:33:06.683Z"}
+{"event":"ACTUAL_NATIVE_Media_activitylogs_insertOne_7047c5d7261701e8bf8c303c73ec33541a052c192da40f0e899d9cb917c30dec","at":"2026-11-06T03:33:06.686Z"}
+{"event":"ACTUAL_STOP_Media","at":"2026-11-06T03:33:06.686Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":500,\"code\":\"INTERNAL_SERVER_ERROR\"}","at":"2026-11-06T03:33:06.688Z"}

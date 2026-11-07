@@ -31,8 +31,9 @@ export const translationService = {
       return dto.alignmentFormat === 'GROUPS_V1' ? { ...dto, status: 'SAVED' } : map(projectId, dto, options);
     }
     const response = await api<{ translations: TranslationSummary[] }>(`/projects/${projectId}/translations`, { signal: options.signal });
-    const latest = [...response.translations].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    return latest ? this.getSavedTranslation(projectId, latest.targetLanguage, options) : null;
+    const choices = response.translations.filter(item => item.projectId === undefined || item.projectId === projectId);
+    if (new Set(choices.map(item => item.targetLanguage)).size !== 1) return null;
+    return choices[0] ? this.getSavedTranslation(projectId, choices[0].targetLanguage, options) : null;
   },
   async get(projectId: string, target: LanguageCode, options: Options = {}): Promise<Translation | null> {
     try { const response = await api<{ translation: TranslationDto }>(`/projects/${projectId}/translations/${encodeURIComponent(target)}?format=groups-v1`, { signal: options.signal }); return map(projectId, response.translation, options) }

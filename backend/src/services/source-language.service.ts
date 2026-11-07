@@ -1,3 +1,5 @@
+import { withGuardedTransaction } from './e2e-runtime-boundary.js';
+import { guardedActualWriter } from './e2e-runtime-boundary.js';
 import mongoose, { type ClientSession } from 'mongoose';
 import { Project } from '../models/Project.js';
 import { Transcript } from '../models/Transcript.js';
@@ -25,9 +27,10 @@ export async function updateProjectSource(projectId: string, ownerId: string, in
 }) {
   const session = await mongoose.startSession();
   try {
-    return await session.withTransaction(async () => {
+    return await withGuardedTransaction(session, async () => {
       const project = await Project.findOne({ _id: projectId, userId: ownerId }).session(session);
       if (!project) throw new AppError(404, 'PROJECT_NOT_FOUND', 'Không tìm thấy dự án.');
+      if (project.targetOperation) throw new AppError(409, 'SOURCE_LANGUAGE_BUSY', 'Dự án đang xử lý.');
       const state = sourceLanguageState(project);
       const mode = input.sourceLanguageMode ?? (input.sourceLanguage ? 'MANUAL' : state.sourceLanguageMode);
       const source = mode === 'AUTO' ? null : input.sourceLanguage ?? state.sourceLanguage;
@@ -48,14 +51,16 @@ export async function updateProjectSource(projectId: string, ownerId: string, in
   } finally { await session.endSession(); }
 }
 
-export async function confirmSourceLanguage(projectId: string, ownerId: string, language: string, expectedRevision: number) {
+export async function confirmSourceLanguage(projectId: string, ownerId: string, language: string, expectedRevision: number) { return guardedActualWriter({ projectId, ownerId }, () => confirmSourceLanguageInternal(projectId, ownerId, language, expectedRevision), 'Source'); }
+async function confirmSourceLanguageInternal(projectId: string, ownerId: string, language: string, expectedRevision: number) {
   if (!SOURCE_LANGUAGES.includes(language as SourceLanguage) || !isRevision(expectedRevision)) throw new AppError(400, 'SOURCE_LANGUAGE_INVALID', 'Ngôn ngữ nguồn hoặc revision không hợp lệ.');
   const session = await mongoose.startSession();
   try {
-    return await session.withTransaction(async () => {
+    return await withGuardedTransaction(session, async () => {
       const project = await Project.findOne({ _id: projectId, userId: ownerId }).session(session);
       if (!project) throw new AppError(404, 'PROJECT_NOT_FOUND', 'Không tìm thấy dự án.');
       const transcript = await Transcript.findOne({ projectId }).session(session);
+      if (project.targetOperation) throw new AppError(409, 'SOURCE_LANGUAGE_BUSY', 'Dự án đang xử lý.');
       if (!transcript || !['READY', 'SAVED'].includes(transcript.status) || !transcript.fullText.trim()) throw new AppError(409, 'TRANSCRIPT_NOT_FOUND', 'Cần có bản ghi hợp lệ trước khi xác nhận nguồn.');
       if (!isRevision(transcript.revision)) throw new AppError(409, 'TRANSCRIPT_REVISION_UNAVAILABLE', 'Bản ghi cũ chưa có revision an toàn.');
       if (transcript.revision !== expectedRevision) throw conflict();

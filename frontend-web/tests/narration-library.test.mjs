@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { libraryProduct, filterLibrary } from '../src/features/results/libraryPresentation.ts'
+import { libraryProduct, libraryProducts, filterLibrary } from '../src/features/results/libraryPresentation.ts'
 import { createRequire } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
@@ -50,7 +50,7 @@ function renderLibrary(data) {
     react: { useMemo: fn => fn(), useState: initial => [initial, () => {}] },
     'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { ...props, href: to }, children) },
     '../features/results/useCompleteHistory': { useCompleteHistory: () => ({ projects: [], isLoading: false, error: null, reload() {}, ...data }) },
-    '../features/results/libraryPresentation': { libraryProduct, filterLibrary },
+    '../features/results/libraryPresentation': { libraryProduct, libraryProducts, filterLibrary },
     '../features/projects/projectUtils': { languageNames: { en: 'Tiếng Anh' } },
     '../components/common/Icon': { Icon: () => null },
     '../components/common/Spinner': { Spinner: () => React.createElement('span', null, 'Loading') },

@@ -70,10 +70,10 @@ function TranscriptWorkspace({ project, canMutate, onProjectReload }: { project:
   const sourceConfirmed = source.confirmed && Boolean(editor.draft?.languageCode) && editor.draft?.languageCode === source.language && editor.draft?.sourceLanguageStatus !== 'NEEDS_CONFIRMATION'
   const canContinue = Boolean(sourceConfirmed && editor.draft && !editor.hasInvalidSegments && editor.status === 'SAVED')
   const stage = editor.status === 'GENERATING' ? 'TRANSCRIBING' : editor.draft ? 'TRANSCRIBED' : project.status
-  const canGenerate = canMutate
+  const canGenerate = canMutate && editor.status !== 'UNCERTAIN' && editor.retryAllowed
   const mediaState = projectMetadataState(project).media
   const mediaIdentity = `${project.id}:${mediaState}:${project.mediaType ?? 'unknown'}:${project.mediaName ?? 'unknown'}:${project.mediaSize ?? 'unknown'}`
-  const retry = editor.failedAction === 'load' ? editor.retryLoad : canMutate ? editor.failedAction === 'save' ? editor.saveTranscript : generateTranscript : undefined
+  const retry = editor.status === 'UNCERTAIN' || !editor.retryAllowed ? editor.retryLoad : editor.failedAction === 'load' ? editor.retryLoad : canMutate ? editor.failedAction === 'save' ? editor.saveTranscript : generateTranscript : undefined
 
   async function generateTranscript() {
     await editor.generate()
@@ -150,6 +150,7 @@ function TranscriptWorkspace({ project, canMutate, onProjectReload }: { project:
         {editor.status === 'LOADING' && <div className="transcript-centered" role="status"><Spinner size="lg" label="Đang tải bản ghi" /><p>Đang tải bản ghi...</p></div>}
         {editor.status === 'GENERATING' && <div className="transcript-centered" role="status"><Spinner size="lg" label="Đang tạo bản ghi" /><h3>Đang chuyển giọng nói thành văn bản...</h3><p>Vui lòng giữ trang mở trong khi máy chủ xử lý tệp phương tiện.</p></div>}
         {editor.status === 'NOT_STARTED' && <EmptyState title="Chưa có bản ghi" description={canGenerate ? 'Phương tiện đã sẵn sàng để tạo bản ghi bằng dịch vụ nhận dạng giọng nói.' : 'Hãy tải phương tiện lên trước khi tạo bản ghi.'} action={canGenerate ? <Button onClick={() => void generateTranscript()}>Tạo bản ghi</Button> : undefined} />}
+        {editor.status === 'UNCERTAIN' && <ErrorState title="Kết quả STT chưa xác định" description={editor.error ?? 'Chỉ kiểm tra trạng thái, không tạo lại bản ghi.'} onRetry={editor.retryLoad} retryLabel="Kiểm tra trạng thái" />}
         {editor.status === 'FAILED' && <ErrorState title={editor.failedAction === 'save' ? 'Không thể lưu bản ghi' : editor.failedAction === 'load' ? 'Không thể tải bản ghi' : 'Không thể tạo bản ghi'} description={editor.error ?? 'Vui lòng thử lại.'} onRetry={retry} retryLabel="Thử lại" />}
         {groupingError && <ErrorState title="Không thể hiển thị mốc thời gian" description={groupingError} onRetry={editor.retryLoad} />}
         {saveFeedback?.saved && <div className="transcript-edit-feedback" role="status"><strong>Đã lưu thay đổi.</strong>{saveFeedback.downstream && <span>Bản ghi đã thay đổi. Bản dịch và kết quả liên quan cần được xác minh lại.</span>}</div>}

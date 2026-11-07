@@ -1,4 +1,7 @@
+import { readSttExecutionState } from '../services/stt/stt-execution-state.js';
+import { mediaLimits } from '../services/media-validation.js';
 import { Router } from 'express';
+import { e2eUploadRequest } from '../middleware/e2e-upload-request.js';
 import * as mediaController from '../controllers/media.controller.js';
 import { streamSourceMedia } from '../controllers/source-media.controller.js';
 import * as projectController from '../controllers/project.controller.js';
@@ -43,6 +46,7 @@ projectRouter.get('/:id/translations/read-only-diagnostic', (req, res, next) => 
 }, requireProjectOwner, async (req, res) => {
   res.json(successResponse(await readOnlyTranslationDiagnostic(req.ownedProjectId!)));
 });
+projectRouter.get('/media-limits', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json(successResponse(mediaLimits())); });
 projectRouter.post('/', validate(createProjectSchema), projectController.create);
 projectRouter.get('/', validate(listProjectsSchema), projectController.list);
 projectRouter.get('/:id', validate(projectIdSchema), projectController.get);
@@ -51,10 +55,11 @@ projectRouter.post('/:id/source-language/confirm', validate(confirmSourceLanguag
 projectRouter.delete('/:id', validate(projectIdSchema), projectController.remove);
 projectRouter.get('/:id/language-variants', validate(projectIdSchema), requireProjectOwner, projectController.languageVariants);
 projectRouter.post('/:id/branch-language', validate(projectIdSchema), requireProjectOwner, projectController.branchLanguage);
-projectRouter.post('/:id/media', requireProjectOwner, uploadMedia, mediaController.upload);
+projectRouter.post('/:id/media', requireProjectOwner, e2eUploadRequest, uploadMedia, mediaController.upload);
 projectRouter.get('/:id/media', requireProjectOwner, mediaController.get);
 projectRouter.get('/:id/media/file', requireProjectOwner, streamSourceMedia);
 projectRouter.delete('/:id/media', requireProjectOwner, mediaController.remove);
+projectRouter.get('/:id/transcription-state', requireProjectOwner, async (req, res) => { res.set('Cache-Control', 'no-store'); res.json(successResponse(await readSttExecutionState(req.ownedProjectId!))); });
 projectRouter.post('/:id/transcription', requireProjectOwner, transcriptionController.start);
 projectRouter.get('/:id/transcript', requireProjectOwner, transcriptionController.get);
 projectRouter.patch('/:id/transcript/segments/:segmentId', validate(updateTranscriptSegmentSchema), requireProjectOwner, transcriptionController.updateSegment);

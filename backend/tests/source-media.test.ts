@@ -4,7 +4,8 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
+mongoose.set('bufferCommands', false);
 
 const directory = await mkdtemp(join(tmpdir(), 'source-media-test-'));
 process.env.NODE_ENV = 'test'; process.env.UPLOAD_DIR = directory;
@@ -23,8 +24,8 @@ test('authenticated source streaming actual route with DB mocks only', async (t)
   const owner = new Types.ObjectId(); const other = new Types.ObjectId(); const projectId = new Types.ObjectId();
   const user = { _id: owner, fullName: 'Test', email: 'test@example.test', role: 'CUSTOMER', status: 'ACTIVE' };
   let media: any = { mimeType: 'audio/mpeg', storagePath: 'source.mp3' };
-  t.mock.method(User, 'findById', async (id: string) => ({ ...user, _id: id === owner.toString() ? owner : other }));
-  t.mock.method(Project, 'findOne', (filter: any) => ({ select: async () => filter._id === projectId.toString() && filter.userId === owner.toString() ? { _id: projectId } : null }));
+  t.mock.method(User, 'findOne', async (filter: any) => ({ ...user, _id: String(filter._id) === owner.toString() ? owner : other }));
+  t.mock.method(Project, 'findOne', (filter: any) => ({ select: async () => filter._id === projectId.toString() && (filter.userId === owner.toString() || filter.userId === undefined && user.role === 'ADMIN') ? { _id: projectId } : null }));
   t.mock.method(Media, 'findOne', async () => media);
   const bytes = Buffer.from('0123456789abcdefghij'); await writeFile(join(directory, 'source.mp3'), bytes); await writeFile(join(directory, 'source.mp4'), bytes);
   const app = express(); app.use('/api/projects', projectRouter); app.use(errorHandlerMiddleware);
@@ -35,10 +36,10 @@ test('authenticated source streaming actual route with DB mocks only', async (t)
   const call = (options: RequestInit = {}, auth: string | null = token, url = base) => fetch(url, { ...options, headers: { ...(auth ? { authorization: `Bearer ${auth}` } : {}), ...options.headers } });
   try {
     await t.test('unauthenticated and token-in-query are rejected', async () => { assert.equal((await call({}, null)).status, 401); assert.equal((await call({}, null, base + '?token=not-a-token')).status, 401); });
-    await t.test('cross-user, blocked and Admin cannot stream', async () => {
+    await t.test('cross-customer and blocked reads are denied; existing Admin policy is preserved', async () => {
       assert.equal((await call({}, otherToken)).status, 404);
-      user.status = 'BLOCKED'; assert.equal((await call()).status, 403); user.status = 'ACTIVE';
-      user.role = 'ADMIN'; assert.equal((await call()).status, 403); user.role = 'CUSTOMER';
+      user.status = 'BLOCKED'; try { assert.equal((await call()).status, 403); } finally { user.status = 'ACTIVE'; }
+      user.role = 'ADMIN'; try { const response = await call(); assert.equal(response.status, 200); await response.arrayBuffer(); } finally { user.role = 'CUSTOMER'; }
     });
     await t.test('MP3 streamed with correct headers and no path leakage', async () => {
       const res = await call(); assert.equal(res.status, 200); assert.equal(res.headers.get('content-type'), 'audio/mpeg'); assert.equal(res.headers.get('content-length'), '20'); assert.equal(res.headers.get('accept-ranges'), 'bytes'); assert.equal(res.headers.get('cache-control'), 'private, no-store'); assert.deepEqual(Buffer.from(await res.arrayBuffer()), bytes); assert.doesNotMatch(JSON.stringify([...res.headers]), /storagePath|source\.mp3|source-media-test/);
@@ -52,7 +53,12 @@ test('authenticated source streaming actual route with DB mocks only', async (t)
     await t.test('metadata missing, disk missing and unsupported format', async () => {
       media = null; assert.equal((await call()).status, 404);
       media = { mimeType: 'audio/mpeg', storagePath: 'missing.mp3' }; assert.equal((await call()).status, 404);
-      media = { mimeType: 'audio/wav', storagePath: 'source.mp3' }; assert.equal((await call()).status, 415);
+      media = { mimeType: 'application/pdf', storagePath: 'source.mp3' }; assert.equal((await call()).status, 415);
+    });
+    await t.test('supported stored source MIME variants remain streamable without exposing paths', async () => {
+      for (const mimeType of ['audio/wav', 'audio/mp4', 'audio/webm', 'video/webm', 'video/quicktime']) {
+        media = { mimeType, storagePath: 'source.mp3' }; const response = await call(); assert.equal(response.status, 200); assert.equal(response.headers.get('content-type'), mimeType); assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+      }
     });
     await t.test('path traversal stored in mock metadata denied with safe response', async () => { media = { mimeType: 'audio/mpeg', storagePath: '../private.mp3' }; const res = await call(); assert.equal(res.status, 404); assert.doesNotMatch(await res.text(), /private\.mp3|source-media-test|storagePath/); });
     await t.test('client path query cannot change selected file', async () => { media = { mimeType: 'audio/mpeg', storagePath: 'source.mp3' }; const res = await call({}, token, base + '?path=../../private.mp3'); assert.deepEqual(Buffer.from(await res.arrayBuffer()), bytes); });

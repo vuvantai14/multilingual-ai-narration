@@ -13,14 +13,7 @@ class ResilientTtsProvider implements TtsProvider {
     if (provider === 'gemini') {
       return this.gemini.synthesize(input);
     }
-    try {
-      return await this.openai.synthesize(input);
-    } catch (error) {
-      if (process.env.GEMINI_API_KEY?.trim()) {
-        return this.gemini.synthesize(input);
-      }
-      throw error;
-    }
+    return this.openai.synthesize(input);
   }
 }
 

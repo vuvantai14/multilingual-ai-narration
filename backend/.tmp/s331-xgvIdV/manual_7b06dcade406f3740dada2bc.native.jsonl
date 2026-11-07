@@ -1,0 +1,8 @@
+{"event":"ACTUAL_SCOPE_cdc3e6d6eb318b2511a7331e32ff673bd13b696bb6a29b9f52336ab84d43d394","at":"2026-11-07T00:18:07.531Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:18:07.533Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:18:07.534Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:18:08.001Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_6d996c5b5e736f46c8d009414b5266377a33c5c9e2742787da3c5b06e351bb24","at":"2026-11-07T00:18:08.010Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_31a3c1c48aa9880b78d3dd3ad54331ecbe0ea1a1abbdcd9077a4619ce88c871f","at":"2026-11-07T00:18:08.013Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:18:08.014Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":404,\"code\":\"PROJECT_NOT_FOUND\"}","at":"2026-11-07T00:18:08.480Z"}

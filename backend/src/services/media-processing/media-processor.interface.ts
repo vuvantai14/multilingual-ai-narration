@@ -1,3 +1,4 @@
+import type { ProcessingStage } from './processing-diagnostics.js';
 export interface MediaProbeResult {
   duration: number;
   format: string;
@@ -21,6 +22,8 @@ export interface MediaProcessingResult extends MediaProbeResult {
 }
 
 export interface MediaProcessor {
-  probe(inputPath: string): Promise<MediaProbeResult>;
+  probe(inputPath: string, stage?: ProcessingStage): Promise<MediaProbeResult>;
+  verifyInput?(inputPath: string): Promise<void>;
+  verifyNarrationAudio?(inputPath: string): Promise<void>;
   composeNarration(input: ComposeNarrationInput): Promise<MediaProcessingResult>;
 }

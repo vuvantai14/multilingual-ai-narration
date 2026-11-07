@@ -1,0 +1,13 @@
+{"event":"ACTUAL_SCOPE_9530bebf3fdc466d991f109e51548cabf653b890ca408c54322ea552dd1491f4","at":"2026-11-07T00:59:48.463Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:59:48.464Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:59:48.465Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:59:48.620Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_1ea8578ce8181a416cfff55ca11a33a6a0f1942d558f42c3faf7c564731354bf","at":"2026-11-07T00:59:48.628Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_c951390cfc6e39b24c9c5d7cf29ad24b31df87bbdf6bdb559f91dab3992932ea","at":"2026-11-07T00:59:48.631Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:59:48.632Z"}
+{"event":"ACTUAL_WRITER_Media","at":"2026-11-07T00:59:49.109Z"}
+{"event":"STORAGE_CLAIM_actual-input-once","at":"2026-11-07T00:59:49.124Z"}
+{"event":"STORAGE_DONE_actual-input-once","at":"2026-11-07T00:59:49.128Z"}
+{"event":"ACTUAL_STORAGE_INPUT_QUARANTINED","at":"2026-11-07T00:59:49.176Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":422,\"code\":\"MEDIA_AUDIO_REQUIRED\"}","at":"2026-11-07T00:59:49.178Z"}
+{"event":"ACTUAL_STOP_Media_S32_E2E_UPLOAD_REQUEST_DENIED","at":"2026-11-07T00:59:49.180Z"}

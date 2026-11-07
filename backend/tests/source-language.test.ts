@@ -297,6 +297,8 @@ test('project workflow cannot advertise translation READY while AUTO source is u
   t.mock.method(Narration, 'find', () => query([]));
   t.mock.method(Result, 'find', () => query([]));
   t.mock.method(ProcessingJob, 'aggregate', async () => [] as never);
+  t.mock.method(ProcessingJob, 'find', () => query([]));
+  t.mock.method(TranslationAttempt, 'find', () => query([]));
   const pending = await getProject(projectId, ownerId);
   assert.equal(pending.sourceLanguage, null); assert.equal(pending.workflow?.step, 'TRANSLATION');
   assert.equal(pending.workflow?.state, 'BLOCKED'); assert.equal(pending.workflow?.canResume, false);
@@ -337,7 +339,9 @@ for (const legacy of [true, false]) test(`Customer SIMPLE vi -> en regression ($
   try {
     const draft = await service.customerGenerate(projectId, ownerId);
     assert.equal(draft.sourceLanguage, 'vi'); assert.equal(draft.targetLanguage, 'en'); assert.equal(draft.groups[0]?.translatedText, 'Hello.');
-    assert.equal(claims, 1); assert.equal(providers, 1); assert.equal(state.writes, 0);
+    assert.equal(claims, 1); assert.equal(providers, 1);
+    // Only project fence acquisition/release; no transcript/artifact write.
+    assert.equal(state.writes, 2);
   } finally { process.env = previous; }
 });
 

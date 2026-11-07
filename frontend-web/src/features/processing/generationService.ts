@@ -1,3 +1,4 @@
+import { projectForTarget } from '../projects/targetWorkflow';
 import type { LanguageCode } from '../projects/types';
 import { projectRepository } from '../projects/projectRepository';
 import { transcriptService } from '../transcript/transcriptService';
@@ -11,7 +12,7 @@ import type { GenerationContext } from './types';
 export const generationService = {
   async getContext(projectId: string, language?: LanguageCode, options: { signal?: AbortSignal } = {}): Promise<GenerationContext | null> {
     // Voice/TTS may have advanced the workflow since the cached project loaded.
-    const project = await projectRepository.getProject(projectId);
+    const project = projectForTarget(await projectRepository.getProject(projectId), language);
     const config = await narrationService.getConfig(projectId, language, options);
     if (!config) return null;
     const [transcript, translation, voice] = await Promise.all([

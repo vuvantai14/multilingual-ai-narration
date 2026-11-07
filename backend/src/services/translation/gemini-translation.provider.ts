@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { e2eRunEnabled } from '../e2e-test-run.js';
 import { z } from 'zod';
 import type { TranslationProvider, TranslationProviderInput, TranslationProviderResult } from './translation-provider.interface.js';
 import { gemini400Diagnostic, type ProviderDiagnostic, type TransportDiagnostic } from './provider-failure.js';
@@ -61,6 +62,7 @@ export const mapGeminiTranslationError = (error: unknown, transportDiagnostic?: 
 export class GeminiTranslationProvider implements TranslationProvider {
   constructor(private readonly transport?: GeminiTranslationTransport) {}
   async translate(input: TranslationProviderInput): Promise<TranslationProviderResult> {
+    if (e2eRunEnabled()) throw new Error('E2E_LEGACY_TRANSLATION_DENIED');
     const key = process.env.GEMINI_API_KEY?.trim();
     const model = process.env.GEMINI_TRANSLATION_MODEL?.trim() || GEMINI_TRANSLATION_MODEL;
     if (!key) throw new GeminiTranslationError('TRANSLATION_NOT_CONFIGURED');

@@ -1,3 +1,9 @@
+import { actualAssets } from './e2e-runtime-boundary.js';
+import { e2eRunEnabled } from './e2e-test-run.js';
+import { withGuardedTransaction, rethrowE2eUncertain } from './e2e-runtime-boundary.js';
+import { scopedAudit } from './e2e-runtime-boundary.js';
+import { guardedActualWriter } from './e2e-runtime-boundary.js';
+import { withE2eScope } from './e2e-test-run.js';
 import { access } from 'node:fs/promises';
 import mongoose, { type ClientSession, type Types } from 'mongoose';
 import { ActivityLog } from '../models/ActivityLog.js';
@@ -11,6 +17,7 @@ import { resolveStoredFile } from '../utils/file.js';
 import { getSttProvider } from './stt/stt.service.js';
 import { OpenAiSttError } from './stt/openai-stt.provider.js';
 import { GeminiSttError } from './stt/gemini-stt.provider.js';
+import type { SttEvidence } from './stt/stt-evidence.js';
 import { env } from '../config/env.js';
 import { isRevision, nextRevision } from './artifact-provenance.service.js';
 import { resolveTranscribedLanguage, sourceLanguageState } from './source-language-contract.js';
@@ -28,7 +35,7 @@ export const rebuildTranscriptFullText = (segments: readonly { sequence: number;
 };
 
 const log = async (userId: string, action: string, entityId: Types.ObjectId) => {
-  try { await ActivityLog.create({ userId, action, entityType: 'Project', entityId, description: action.replaceAll('_', ' ').toLowerCase() }); } catch { /* best effort */ }
+  try { await scopedAudit(() => ActivityLog.create({ userId, action, entityType: 'Project', entityId, description: action.replaceAll('_', ' ').toLowerCase() })); } catch { /* best effort */ }
 };
 const serialize = async (projectId: string) => {
   const transcript = await Transcript.findOne({ projectId });
@@ -46,7 +53,7 @@ const assertEditableProject = async (projectId: string, userId: string, session:
   const project = await Project.findOne({ _id: projectId, userId }).session(session);
   if (!project) throw new AppError(404, 'PROJECT_NOT_FOUND', 'Không tìm thấy dự án.');
   const transcriptionJob = await ProcessingJob.findOne({ projectId, type: 'TRANSCRIPTION', status: { $in: ['QUEUED', 'PROCESSING'] } }).session(session);
-  if (project.status === 'TRANSCRIBING' || transcriptionJob) {
+  if (project.targetOperation || project.status === 'TRANSCRIBING' || transcriptionJob) {
     throw new AppError(409, 'TRANSCRIPT_EDIT_NOT_ALLOWED', 'Không thể chỉnh sửa bản ghi khi nhận diện giọng nói đang xử lý.');
   }
 };
@@ -57,7 +64,7 @@ export const updateTranscriptSegment = async (projectId: string, userId: string,
   let result: { transcript: { id: string; revision: number; fullText: string }; segment: { id: string; index: number; startTime: number; endTime: number; text: string } } | undefined;
   let changed = false;
   try {
-    await session.withTransaction(async () => {
+    await withGuardedTransaction(session, async () => {
       await assertEditableProject(projectId, userId, session);
       const transcript = await Transcript.findOne({ projectId }).session(session);
       if (!transcript) throw new AppError(404, 'TRANSCRIPT_NOT_FOUND', 'Không tìm thấy bản ghi.');
@@ -100,9 +107,21 @@ export const updateTranscriptSegment = async (projectId: string, userId: string,
   };
 };
 
-export const transcribe = async (projectId: string, userId: string) => {
+export const transcribe = (projectId: string, userId: string) => guardedActualWriter({ projectId, ownerId: userId }, () => transcribeInternal(projectId, userId), 'STT');
+const transcribeInternal = async (projectId: string, userId: string) => {
+  if(e2eRunEnabled())actualAssets().assertStage('STT');
+  // An old FAILED job with absent evidence is UNKNOWN, not a free retry. This
+  // is a read-only gate: never reset the old job/project or allocate a new job.
+  const uncertain=await ProcessingJob.exists({projectId,type:'TRANSCRIPTION',status:'FAILED',$or:[
+    {'sttEvidence.contract':{$ne:'GEMINI_STT_EVIDENCE_V1'}},{'sttEvidence.outcome':{$ne:'FAILED_PRE_DISPATCH'}},
+    {'sttEvidence.inferenceState':{$ne:'NOT_DISPATCHED'}},{'sttEvidence.providerAccepted':{$ne:'NO'}},{'sttEvidence.inferenceDispatchAt':{$exists:true}},
+  ]});
+  if(uncertain){
+    if(!await Project.exists({_id:projectId,userId}))throw new AppError(404,'PROJECT_NOT_FOUND','Không tìm thấy dự án.');
+    throw new AppError(409,'STT_ATTEMPT_UNCERTAIN','Lần tạo bản ghi trước chưa xác định hoặc đã gửi inference. Không thử lại; cần kiểm tra và phê duyệt phục hồi riêng.');
+  }
   const project = await Project.findOneAndUpdate(
-    { _id: projectId, userId, status: { $in: ['UPLOADED', 'FAILED', 'TRANSCRIBED'] } },
+    { _id: projectId, userId, targetOperation: null, status: { $in: ['UPLOADED', 'FAILED', 'TRANSCRIBED'] } },
     { $set: { status: 'TRANSCRIBING', progress: 0 } }, { returnDocument: 'before' },
   );
   if (!project) {
@@ -116,16 +135,22 @@ export const transcribe = async (projectId: string, userId: string) => {
   const filePath = resolveStoredFile(media.storagePath);
   try { await access(filePath); } catch { await Project.updateOne({ _id: projectId }, { status: project.status }); throw new AppError(409, 'MEDIA_FILE_MISSING', 'Tệp media nguồn không tồn tại.'); }
   const job = await ProcessingJob.create({ projectId, type: 'TRANSCRIPTION', status: 'PROCESSING', progress: 0, startedAt: new Date() });
+  let lastEvidence:SttEvidence|undefined;
+  const onEvidence=(value:SttEvidence)=>{
+    lastEvidence=value;
+    // Structured fixed metadata; no file paths, headers, key or transcript text.
+    console.info('STT execution evidence:',{projectId,jobId:job._id.toString(),...value});
+  };
   void log(userId, project.status === 'FAILED' ? 'TRANSCRIPTION_RETRIED' : 'TRANSCRIPTION_STARTED', project._id);
   try {
     const mode = sourceLanguageState(project).sourceLanguageMode;
-    const result = await getSttProvider().transcribe({ filePath, mimeType: media.mimeType, sourceLanguageMode: mode,
-      ...(mode === 'MANUAL' && project.sourceLanguage ? { language: project.sourceLanguage } : {}) });
+    const result = await withE2eScope({ projectId, ownerId: userId }, () => getSttProvider().transcribe({ filePath, mimeType: media.mimeType, sourceLanguageMode: mode,onEvidence,
+      ...(mode === 'MANUAL' && project.sourceLanguage ? { language: project.sourceLanguage } : {}) }));
     if (!result.text.trim() || !result.segments.length) throw new Error('STT_INVALID_RESPONSE');
     const source = resolveTranscribedLanguage(project, result.languageDetection);
     const session = await mongoose.startSession();
     try {
-      await session.withTransaction(async () => {
+      await withGuardedTransaction(session, async () => {
         const currentTranscript = await Transcript.findOne({ projectId }).session(session);
         const revision = nextRevision(currentTranscript?.revision);
         const transcript = currentTranscript
@@ -138,13 +163,16 @@ export const transcribe = async (projectId: string, userId: string) => {
         if (!transcript) throw new Error('TRANSCRIPT_REVISION_CONFLICT');
         await TranscriptSegment.deleteMany({ transcriptId: transcript._id }, { session });
         await TranscriptSegment.insertMany(result.segments.map((s, index) => ({ transcriptId: transcript._id, sequence: index + 1, startTime: s.start, endTime: s.end, text: s.text.trim() })), { session });
-        await ProcessingJob.updateOne({ _id: job._id }, { status: 'COMPLETED', progress: 100, completedAt: new Date() }, { session });
+        await ProcessingJob.updateOne({ _id: job._id }, { status: 'COMPLETED', progress: 100, completedAt: new Date(),...(lastEvidence?{sttEvidence:lastEvidence}:{}) }, { session });
         await Project.updateOne({ _id: projectId }, { status: 'TRANSCRIBED', progress: 100, ...source }, { session });
       });
     } finally { await session.endSession(); }
     void log(userId, 'TRANSCRIPTION_COMPLETED', project._id);
     return { project: { id: projectId, status: 'TRANSCRIBED', ...source }, transcript: { ...(await serialize(projectId)), segmentCount: result.segments.length } };
   } catch (error) {
+    const evidence=lastEvidence??(error instanceof GeminiSttError?error.evidence:undefined);
+    if(evidence)console.error('STT failure evidence:',{projectId,jobId:job._id.toString(),...evidence});
+    rethrowE2eUncertain(error);
     if (env.nodeEnv === 'development' && error instanceof OpenAiSttError) {
       console.error('STT provider diagnostic:', error.diagnostics);
     }
@@ -154,17 +182,24 @@ export const transcribe = async (projectId: string, userId: string) => {
       if (error.diagnostic?.timestampEvidence) console.error('STT timestamp evidence:', error.diagnostic.timestampEvidence);
     }
     const code = error instanceof GeminiSttError ? error.code : error instanceof Error && ['STT_NOT_CONFIGURED', 'STT_FILE_TOO_LARGE', 'STT_TIMEOUT', 'STT_INVALID_RESPONSE'].includes(error.message) ? error.message : 'STT_PROVIDER_ERROR';
-    await Promise.all([ProcessingJob.updateOne({ _id: job._id }, { status: 'FAILED', errorMessage: code, completedAt: new Date() }), Project.updateOne({ _id: projectId }, { status: 'FAILED' })]);
+    // The project terminal grant requires independently committed job evidence.
+    // Do not let two Mongoose query preparations race at the native guard.
+    await ProcessingJob.updateOne({ _id: job._id }, { status: 'FAILED', errorMessage: code, completedAt: new Date(),...(evidence?{sttEvidence:evidence}:{}) });
+    await Project.updateOne({ _id: projectId }, { status: 'FAILED' });
     void log(userId, 'TRANSCRIPTION_FAILED', project._id);
-    const status = ['STT_NOT_CONFIGURED', 'STT_INVALID_KEY', 'STT_MODEL_UNAVAILABLE'].includes(code) ? 503 : code === 'STT_FILE_TOO_LARGE' ? 413 : code === 'STT_QUOTA_EXCEEDED' ? 429 : code === 'STT_INVALID_FILE' ? 422 : 502;
+    const status = ['STT_NOT_CONFIGURED', 'STT_INVALID_KEY', 'STT_MODEL_UNAVAILABLE'].includes(code) ? 503 : code === 'STT_FILE_TOO_LARGE' ? 413 : code === 'STT_QUOTA_EXCEEDED' ? 429 : ['STT_INVALID_FILE', 'STT_DURATION_EXCEEDED'].includes(code) ? 422 : 502;
     const messages: Record<string, string> = {
       STT_NOT_CONFIGURED: 'Dịch vụ chuyển giọng nói thành văn bản chưa được cấu hình.',
       STT_INVALID_KEY: 'Khóa dịch vụ chuyển giọng nói thành văn bản không hợp lệ.',
       STT_MODEL_UNAVAILABLE: 'Model chuyển giọng nói thành văn bản không khả dụng hoặc chưa được cấp quyền.',
       STT_QUOTA_EXCEEDED: 'Dịch vụ chuyển giọng nói thành văn bản đã hết hạn mức hoặc bị giới hạn yêu cầu.',
       STT_INVALID_FILE: 'Tệp âm thanh/video không hợp lệ hoặc không thể xử lý.',
+      STT_DURATION_EXCEEDED: 'Thời lượng media vượt giới hạn 1800 giây khi tạo bản ghi với mốc thời gian từng từ.',
       STT_NO_SPEECH: 'Không nhận diện được lời nói trong tệp.',
+      STT_INVALID_RESPONSE: 'Gemini đã trả phản hồi nhưng bản ghi hoặc mốc thời gian không hợp lệ.',
     };
-    throw new AppError(status, code, messages[code] ?? 'Không thể chuyển giọng nói thành văn bản.');
+    if(evidence?.inferenceDispatchAt && evidence.outcome !== 'FAILED_RESPONSE') throw new AppError(502, 'STT_EXECUTION_UNCERTAIN', `${evidence.httpStatus === 503 ? 'Gemini tạm thời không khả dụng (HTTP 503). ' : evidence.httpStatus === 429 ? 'Gemini giới hạn sử dụng (HTTP 429). ' : ''}Không xác định được kết quả xử lý. Vui lòng kiểm tra trạng thái, không gửi lại yêu cầu.`);
+    const message = evidence?.httpStatus === 503 ? 'Gemini tạm thời không khả dụng (HTTP 503).' : messages[code] ?? 'Không thể chuyển giọng nói thành văn bản.';
+    throw new AppError(status, code, `${message}${evidence?.outcome === 'FAILED_RESPONSE' ? ' Provider đã trả phản hồi; không tự tạo lại bản ghi.' : ''}`);
   }
 };

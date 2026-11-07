@@ -28,6 +28,8 @@
     "seed:admin": "tsx src/scripts/seed-admin.ts",
     "seed:voices": "tsx src/scripts/seed-voice-catalog.ts",
     "seed:voices:gemini": "tsx src/scripts/seed-gemini-voice-catalog.ts",
+    "catalog:multilang": "tsx src/scripts/prepare-multilang-catalog.ts",
+    "test:multilang-catalog": "node --import tsx --test tests/multilang-catalog.test.ts tests/gemini-voice-catalog.test.ts tests/language-catalog.test.ts",
     "test:gemini-voice-catalog": "node --import tsx --test tests/gemini-voice-catalog.test.ts",
     "seed:languages": "tsx src/scripts/seed-language-catalog.ts",
     "audit:s24-customers": "tsx src/scripts/soft-delete-s24-customers.ts dry-run",

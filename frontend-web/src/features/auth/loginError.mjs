@@ -4,6 +4,8 @@ export function getLoginErrorMessage(error) {
   const name = typeof error === 'object' && error !== null && typeof error.name === 'string' ? error.name : undefined;
   const message = error instanceof Error ? error.message : undefined;
   if (status === 401 || code === 'INVALID_CREDENTIALS') return 'Email hoặc mật khẩu không đúng.';
+  if (status === 403 || code === 'ACCOUNT_BLOCKED') return 'Tài khoản không được phép đăng nhập. Vui lòng liên hệ quản trị viên.';
+  if (status === 429 || code === 'RATE_LIMIT_EXCEEDED') return 'Có quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau.';
   if (status === 400 || code === 'VALIDATION_ERROR') return 'Dữ liệu đăng nhập không hợp lệ. Vui lòng kiểm tra lại.';
   if (status !== undefined && status >= 500) return 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.';
   if (error instanceof TypeError || name === 'TimeoutError') return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng và thử lại.';

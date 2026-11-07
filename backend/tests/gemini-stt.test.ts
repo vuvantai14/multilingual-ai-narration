@@ -58,7 +58,7 @@ test('Gemini MP3/MP4 provider contract with mock SDK transport (no API, no DB)',
     await t.test('invalid MIME rejected', async () => { await rejects('STT_INVALID_FILE', make(), { ...input, mimeType: 'application/pdf' }); });
     await t.test('missing source rejected without network', async () => { events = []; await rejects('STT_INVALID_FILE', make(), { ...input, filePath: join(directory, 'absent.mp3') }); assert.deepEqual(events, []); });
     await t.test('no audio rejected before upload', async () => { await rejects('STT_INVALID_FILE', new GeminiSttProvider(transport, async () => ({ ...await probe(), hasAudio: false }))); });
-    await t.test('duration guard rejected before upload', async () => { await rejects('STT_INVALID_FILE', new GeminiSttProvider(transport, async () => ({ ...await probe(), duration: 3601 }))); });
+    await t.test('word-timestamp duration guard rejects over 30 minutes before model lookup/upload/dispatch', async () => { events = []; await rejects('STT_DURATION_EXCEEDED', new GeminiSttProvider(transport, async () => ({ ...await probe(), duration: 1801 }))); assert.deepEqual(events, []); });
     for (const [status, code] of [[401, 'STT_INVALID_KEY'], [403, 'STT_MODEL_UNAVAILABLE'], [404, 'STT_MODEL_UNAVAILABLE'], [429, 'STT_QUOTA_EXCEEDED'], [500, 'STT_PROVIDER_ERROR']] as const) await t.test(`model check ${status} maps to ${code} without upload`, async () => {
       events = []; await rejects(code, new GeminiSttProvider({ ...transport, async checkModel() { throw { status, message: 'secret-payload-do-not-log' }; } }, probe)); assert.deepEqual(events, []);
     });

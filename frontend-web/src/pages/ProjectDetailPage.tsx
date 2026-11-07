@@ -1,3 +1,4 @@
+import { TargetWorkflows } from '../features/projects/TargetWorkflows';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -127,6 +128,7 @@ export function ProjectDetailPage() {
     {resumeNavigationNotice && <p className="project-workflow-warning project-detail-resume-notice" role="status"><strong>Đã mở trang chi tiết an toàn.</strong> {resumeNavigationNotice}</p>}
     <div className="project-detail-layout">
       <Card padding="lg" className="project-detail-summary"><section aria-labelledby="workflow-heading"><div className="project-detail-section-heading"><span className="project-detail-section-icon" aria-hidden="true"><Icon name="sparkles" width="20" /></span><div><h2 id="workflow-heading">Tiến độ dự án</h2><p>Theo dõi các bước xử lý và tiếp tục khi dự án sẵn sàng.</p></div></div><WorkflowSteps workflow={project.workflow} projectId={project.id} pageStep="UPLOAD" />
+    <TargetWorkflows project={project} />
         {project.workflow?.state === 'PROCESSING' && <div className="project-workflow-state" role="status"><strong>Dự án đang được xử lý.</strong><span>Vui lòng chờ bước hiện tại hoàn tất; trang này không tự tạo thêm tác vụ.</span>{project.workflow.processing && <ProgressBar value={project.workflow.processing.progress} label="Tiến độ xử lý" />}</div>}
         {project.workflow?.state === 'FAILED' && action.available && <div className="project-workflow-state project-workflow-state--error" role="alert"><strong>Bước hiện tại chưa hoàn tất.</strong><span>Bạn có thể mở đúng bước gặp lỗi để xem hướng dẫn và chủ động thử lại.</span></div>}
         {project.workflow?.state === 'COMPLETED' && <div className="project-workflow-state project-workflow-state--success" role="status"><strong>Dự án đã hoàn thành.</strong><span>Kết quả chỉ khả dụng khi Backend xác nhận artifact hợp lệ.</span></div>}

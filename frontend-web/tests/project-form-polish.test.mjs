@@ -45,6 +45,7 @@ function harness(page, { failSave = false, upload = async () => {}, mediaState =
     '../features/projects/projectUtils': { sourceLanguageOptions: [{ value: 'vi', label: 'Tiếng Việt' }] },
     '../features/projects/sourceLanguage': sourceLanguage,
     '../features/projects/SourceLanguageSummary': { SourceLanguageSummary: 'source-summary-test' },
+    '../features/projects/TargetWorkflows': { TargetWorkflows: 'target-workflows-test' },
     '../features/projects/projectAction': { projectAction: () => ({ available: false, reason: 'Test only' }) },
     '../features/projects/projectDataState': { projectMetadataState: () => ({ media: mediaState }) },
     '../features/transcript/SourceMediaPlayer': { SourceMediaPlayer: 'source-player-test' },

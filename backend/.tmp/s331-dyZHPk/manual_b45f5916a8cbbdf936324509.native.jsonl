@@ -1,0 +1,13 @@
+{"event":"ACTUAL_SCOPE_5c5d9c39da50b216ebd8d4eb9cb68e00706f178fb0e62f88cc843614314d569c","at":"2026-11-07T00:59:19.374Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:59:19.375Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:59:19.376Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:59:19.596Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_ee55efe13e5f777fc90b374d79d07fbbb2a350d72e02d4f946aa1b02c1c11e15","at":"2026-11-07T00:59:19.608Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_c7a1e4ff1d00659f42c041821766b092c30dfe20ea1a74f1df05f1152f1ea8a5","at":"2026-11-07T00:59:19.612Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:59:19.613Z"}
+{"event":"ACTUAL_WRITER_Media","at":"2026-11-07T00:59:20.232Z"}
+{"event":"STORAGE_CLAIM_actual-input-once","at":"2026-11-07T00:59:20.239Z"}
+{"event":"STORAGE_DONE_actual-input-once","at":"2026-11-07T00:59:20.245Z"}
+{"event":"ACTUAL_STORAGE_INPUT_QUARANTINED","at":"2026-11-07T00:59:20.304Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":422,\"code\":\"MEDIA_AUDIO_REQUIRED\"}","at":"2026-11-07T00:59:20.306Z"}
+{"event":"ACTUAL_STOP_Media_S32_E2E_UPLOAD_REQUEST_DENIED","at":"2026-11-07T00:59:20.308Z"}

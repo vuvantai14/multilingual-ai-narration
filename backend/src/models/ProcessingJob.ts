@@ -1,5 +1,6 @@
 import { model, Schema, type InferSchemaType } from 'mongoose';
 import { PROCESSING_JOB_STATUSES, PROCESSING_JOB_TYPES } from '../constants/processing-job.constants.js';
+import { STT_STAGES } from '../services/stt/stt-evidence.js';
 
 const processingJobSchema = new Schema(
   {
@@ -17,6 +18,18 @@ const processingJobSchema = new Schema(
     status: { type: String, enum: PROCESSING_JOB_STATUSES, required: true, default: 'QUEUED', index: true },
     progress: { type: Number, required: true, default: 0, min: 0, max: 100 },
     errorMessage: { type: String, trim: true },
+    // Optional, operator-only evidence for FUTURE jobs; no backfill/migration.
+    // FAILED job lifecycle does not imply safe pre-dispatch failure.
+    sttEvidence:{type:new Schema({
+      contract:{type:String,enum:['GEMINI_STT_EVIDENCE_V1']},stage:{type:String,enum:STT_STAGES},
+      startedAt:String,stageStartedAt:String,observedAt:String,inferenceDispatchAt:String,inferenceResponseAt:String,
+      httpStatus:{type:Number,min:200,max:599},providerErrorCode:{type:String,maxlength:80},
+      requestId:{type:String,maxlength:128},operationId:{type:String,maxlength:128},
+      inferenceState:{type:String,enum:['NOT_DISPATCHED','INVOKED','RESPONSE_RECEIVED']},
+      outcome:{type:String,enum:['IN_PROGRESS','FAILED_PRE_DISPATCH','UNCERTAIN','FAILED_RESPONSE','SUCCEEDED']},
+      timeline:{type:new Schema({policy:{type:String,enum:['BOUNDED_TIMELINE_V1']},toleranceMs:{type:Number,enum:[50]},pointWords:Number,duplicateIntervals:Number,overlaps:Number,maxAdjustmentMs:{type:Number,min:0,max:50}},{_id:false})},
+      providerAccepted:{type:String,enum:['YES','NO','UNKNOWN']},retryAllowed:{type:Boolean,enum:[false]},cleanupFailed:Boolean,
+    },{_id:false}),select:false},
     // Operator diagnostics only; ordinary Customer/Admin job responses exclude it.
     diagnostics: { type: new Schema({
       stage: String, code: String, durationMs: Number, exitCode: Number,

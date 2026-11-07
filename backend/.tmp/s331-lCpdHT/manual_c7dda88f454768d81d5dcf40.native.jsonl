@@ -1,0 +1,10 @@
+{"event":"ACTUAL_SCOPE_0dde39b40ef821279223308a9a431f5c51f885527c8f1b8d9d4b607019ce2454","at":"2026-11-07T00:17:10.386Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:17:10.388Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:17:10.389Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:17:10.924Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_838f0fe4b5a99a8db2834d55e9045dd621e456e6aaf17123b035ee261a0cf28c","at":"2026-11-07T00:17:10.935Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_22212569b5b0c75b6651df215d410d2728c5ed9296b677ddffde306fe51c406c","at":"2026-11-07T00:17:10.937Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:17:10.938Z"}
+{"event":"ACTUAL_WRITER_Media","at":"2026-11-07T00:17:11.429Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":500,\"code\":\"INTERNAL_SERVER_ERROR\"}","at":"2026-11-07T00:17:11.441Z"}
+{"event":"ACTUAL_STOP_Media_S32_E2E_UPLOAD_REQUEST_DENIED","at":"2026-11-07T00:17:11.444Z"}

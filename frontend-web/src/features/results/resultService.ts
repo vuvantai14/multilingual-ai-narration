@@ -23,20 +23,24 @@ const narrationMetadata = (narration?: NarrationDto) => ({
 });
 
 export const resultService = {
-  async getByProjectId(projectId: string, language?: LanguageCode): Promise<Result | null> {
+  async getByProjectId(projectId: string, language?: LanguageCode, mediaType?: 'AUDIO' | 'VIDEO'): Promise<Result | null> {
     const [{ results }, { narrations }] = await Promise.all([
       api<{ results: VideoResultDto[] }>(`/projects/${projectId}/results`),
       api<{ narrations: NarrationDto[] }>(`/projects/${projectId}/narrations`),
     ]);
     const projectNarrations = narrations.filter(item => item.projectId === projectId);
-    const video = newest(results.filter((item) => item.projectId === projectId && (!language || item.targetLanguage === language)));
+    const targets = new Set([...results.filter(row => row.projectId === projectId).map(row => row.targetLanguage), ...projectNarrations.map(row => row.targetLanguage)]);
+    const selected = language ?? (targets.size === 1 ? [...targets][0] : undefined);
+    if (!selected) return null;
+    const video = newest(results.filter((item) => item.projectId === projectId && item.targetLanguage === selected));
     if (video) {
       // Use the narration actually rendered into this video, not a newer voice
       // configuration, a same-language neighbour, or another project's record.
       const narration = projectNarrations.find(item => item.id === video.narrationId && item.targetLanguage === video.targetLanguage);
       return { id: video.id, projectId, languageCode: video.targetLanguage, mediaType: 'VIDEO', artifactType: 'VIDEO', createdAt: video.createdAt, mimeType: video.mimeType, fileSize: video.fileSize, duration: video.duration, width: video.width, height: video.height, filePath: video.fileUrl, ...narrationMetadata(narration) };
     }
-    const audio = newest(projectNarrations.filter((item) => !language || item.targetLanguage === language));
+    if (mediaType === 'VIDEO') return null;
+    const audio = newest(projectNarrations.filter((item) => item.targetLanguage === selected));
     if (!audio) return null;
     return { id: audio.id, projectId, languageCode: audio.targetLanguage, mediaType: 'AUDIO', artifactType: 'AUDIO', createdAt: audio.createdAt, mimeType: audio.mimeType, fileSize: audio.fileSize, duration: audio.duration ?? undefined, ...narrationMetadata(audio), filePath: audio.audioUrl };
   },
@@ -47,8 +51,8 @@ export const resultService = {
         api<{ narrations: NarrationDto[] }>(`/projects/${projectId}/narrations`),
       ]);
       const set = new Set<string>();
-      results.forEach((r) => { if (r.targetLanguage) set.add(r.targetLanguage); });
-      narrations.forEach((n) => { if (n.targetLanguage) set.add(n.targetLanguage); });
+      results.forEach((r) => { if (r.projectId === projectId && r.targetLanguage) set.add(r.targetLanguage); });
+      narrations.forEach((n) => { if (n.projectId === projectId && n.targetLanguage) set.add(n.targetLanguage); });
       return Array.from(set);
     } catch {
       return [];
@@ -68,7 +72,7 @@ export const resultService = {
   getFile: (result: Result) => apiBlob(result.filePath),
   async getHistory(): Promise<HistoryItem[]> {
     return Promise.all(projectRepository.getAll().map(async (project) => {
-      try { return { ...project, hasResult: Boolean(await resultService.getByProjectId(project.id)) }; }
+      try { return { ...project, hasResult: Boolean(await resultService.getByProjectId(project.id, undefined, project.mediaType)) }; }
       catch { return { ...project, hasResult: false }; }
     })).then((items) => items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
   },

@@ -1,0 +1,12 @@
+{"event":"ACTUAL_SCOPE_f23da9b6f75c93f072c1eaadbe90e6926c6b748acb85ead64755ec6448333e74","at":"2026-11-07T00:17:16.095Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:17:16.097Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:17:16.098Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:17:16.576Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_9030d3ba78e699ef50ab650c0f946e503f6621271d9d7e1bf03f47a43552420c","at":"2026-11-07T00:17:16.586Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_9170f343c1ae65adaceb3e3eac29c86d42ccb2cb23e624d27b78f2e32ada6a20","at":"2026-11-07T00:17:16.590Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:17:16.591Z"}
+{"event":"ACTUAL_WRITER_Media","at":"2026-11-07T00:17:17.053Z"}
+{"event":"STORAGE_CLAIM_actual-input-once","at":"2026-11-07T00:17:17.068Z"}
+{"event":"STORAGE_DONE_actual-input-once","at":"2026-11-07T00:17:17.074Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":500,\"code\":\"INTERNAL_SERVER_ERROR\"}","at":"2026-11-07T00:17:17.133Z"}
+{"event":"ACTUAL_STOP_Media_S32_E2E_UPLOAD_REQUEST_DENIED","at":"2026-11-07T00:17:17.136Z"}

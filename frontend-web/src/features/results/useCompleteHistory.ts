@@ -13,7 +13,11 @@ export function useCompleteHistory() {
         for (let page = 1; ; page++) {
           const result = await projectRepository.listPage({ page, limit: 100 }, controller.signal)
           if (controller.signal.aborted) return
-          items.push(...result.projects)
+          for (let index = 0; index < result.projects.length; index += 4) {
+            const detailed = await Promise.all(result.projects.slice(index, index + 4).map(async project => ({ ...project, ...await projectRepository.getProjectForResume(project.id, controller.signal) })));
+            if (controller.signal.aborted) return;
+            items.push(...detailed);
+          }
           if (page >= result.pagination.totalPages) break
         }
         setProjects([...new Map(items.map(item => [item.id, item])).values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))

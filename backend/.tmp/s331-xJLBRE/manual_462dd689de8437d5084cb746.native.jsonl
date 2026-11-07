@@ -1,0 +1,8 @@
+{"event":"ACTUAL_SCOPE_7504e77714ee5b83c66f6d764df5ba47c3a72ed52b5dfca991365803be6f91aa","at":"2026-11-07T00:09:19.202Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:09:19.204Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:09:19.205Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:09:19.701Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_c000cb9d7ec1e86a1ce25a76a1bcae9e1b7dacf5291c0eae892b4b03f606b015","at":"2026-11-07T00:09:19.711Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_6decec54fa2697f8959dd8e73422740e145931b6d656fb56f26d6d1e15a04236","at":"2026-11-07T00:09:19.714Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:09:19.715Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects\",\"status\":409,\"code\":\"E2E_TEST_RUN_BLOCKED\"}","at":"2026-11-07T00:09:20.244Z"}

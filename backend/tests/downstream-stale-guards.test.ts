@@ -23,7 +23,7 @@ const query = <T>(value: T) => ({
 
 const records = (sourceTranscriptRevision: number | undefined, transcriptRevision = 2) => ({
   transcript: { _id: transcriptId, revision: transcriptRevision },
-  translation: { _id: translationId, projectId: new Types.ObjectId(projectId), transcriptId, revision: 4, sourceTranscriptRevision },
+  translation: { _id: translationId, projectId: new Types.ObjectId(projectId), transcriptId, targetLanguage: 'en', revision: 4, sourceTranscriptRevision },
   narration: { _id: narrationId, projectId: new Types.ObjectId(projectId), translationId, revision: 3, sourceTranslationRevision: 4,
     voiceId, languageCode: 'en', speed: 1, mimeType: 'audio/mpeg', fileSize: 10, provider: 'mock', model: 'mock', status: 'READY', createdAt: now, updatedAt: now },
   result: { _id: resultId, projectId: new Types.ObjectId(projectId), narrationId, sourceNarrationRevision: 3,

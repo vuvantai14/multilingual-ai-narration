@@ -1,7 +1,8 @@
+import { mediaLimits, validateMediaName } from '../services/media-validation.js';
 import { randomUUID } from 'node:crypto';
 import { relative } from 'node:path';
 import multer from 'multer';
-import { env } from '../config/env.js';
+import { E2eMulterStorage } from './e2e-multer-storage.js';
 import { AppError } from '../utils/app-error.js';
 import { ensureUploadDirectory, uploadRoot } from '../utils/file.js';
 
@@ -9,6 +10,8 @@ const mimeExtensions: Record<string, { extension: string; mediaType: 'VIDEO' | '
   'video/mp4': { extension: '.mp4', mediaType: 'VIDEO' },
   'video/webm': { extension: '.webm', mediaType: 'VIDEO' },
   'video/quicktime': { extension: '.mov', mediaType: 'VIDEO' },
+  'audio/mp3': { extension: '.mp3', mediaType: 'AUDIO' },
+  'audio/x-m4a': { extension: '.m4a', mediaType: 'AUDIO' },
   'audio/mpeg': { extension: '.mp3', mediaType: 'AUDIO' },
   'audio/wav': { extension: '.wav', mediaType: 'AUDIO' },
   'audio/x-wav': { extension: '.wav', mediaType: 'AUDIO' },
@@ -36,13 +39,14 @@ export const uploadMedia = multer({
   // Web/native clients send UTF-8 filename bytes in multipart headers.
   // Decode once at the parser boundary; never reinterpret an existing Unicode name.
   defParamCharset: 'utf8',
-  storage,
-  limits: { fileSize: Math.floor(env.maxUploadSizeMb * 1024 * 1024), files: 1 },
+  storage: new E2eMulterStorage(storage),
+  limits: { fileSize: mediaLimits().maxFileSize, files: 1 },
   fileFilter(_request, file, callback) {
     if (!mimeExtensions[file.mimetype]) {
       callback(new AppError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Định dạng tệp không được hỗ trợ.'));
       return;
     }
+    try { validateMediaName(file.originalname, file.mimetype); } catch (error) { callback(error as Error); return; }
     callback(null, true);
   },
 }).single('file');

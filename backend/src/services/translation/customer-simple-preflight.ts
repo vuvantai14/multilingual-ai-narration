@@ -15,7 +15,7 @@ import { assertSourceLanguageConfirmed } from '../source-language-contract.js';
 
 const dependencies = {
   owns: async (projectId: string, ownerId: string) => Boolean(await Project.findOne({ _id: projectId, userId: ownerId }).select('_id')),
-  project: async (projectId: string, ownerId: string) => Project.findOne({ _id: projectId, userId: ownerId }).select('status sourceLanguage sourceLanguageMode sourceLanguageStatus'),
+  project: async (projectId: string, ownerId: string) => Project.findOne({ _id: projectId, userId: ownerId }).select('status targetOperation sourceLanguage sourceLanguageMode sourceLanguageStatus'),
   load: loadSource,
   attempt: customerAttempts.inspect.bind(customerAttempts),
   translation: async (projectId: string, targetLanguage: string) => Boolean(await Translation.exists({ projectId, targetLanguage })),
@@ -48,7 +48,8 @@ export async function customerSimplePreflight(projectId: string, ownerId: string
     const project = await deps.project(projectId, ownerId);
     if (!project) throw new AppError(404, 'PROJECT_NOT_FOUND', 'Dự án không khả dụng.');
     assertSourceLanguageConfirmed(project);
-    if (!['TRANSCRIBED', 'TRANSLATED', 'FAILED'].includes(project.status)) throw new AppError(409, 'INVALID_PROJECT_STATE', 'Trạng thái dự án chưa cho phép bắt đầu dịch.');
+    if (!['TRANSCRIBED', 'TRANSLATED', 'FAILED', ...(method === 'GEMINI_SIMPLE_V1' ? ['COMPLETED'] : [])].includes(project.status)) throw new AppError(409, 'INVALID_PROJECT_STATE', 'Trạng thái dự án chưa cho phép bắt đầu dịch.');
+    if (project.targetOperation) throw new AppError(409, 'PROJECT_TARGET_BUSY', 'Project target operation is active.');
     const [source, translation, jobs] = await Promise.all([deps.load(projectId), deps.translation(projectId, targetLanguage), deps.jobs(projectId)]);
     assertSimpleLanguages(source.languageCode, targetLanguage);
     if (project && project.sourceLanguage !== source.languageCode) throw new AppError(409, 'SOURCE_REVISION_MISMATCH', 'Ngôn ngữ nguồn đã thay đổi.');
@@ -102,7 +103,7 @@ export async function customerSimplePreflight(projectId: string, ownerId: string
       reasonCodes: [...blocked, ...unknown],
     };
   } catch (error) {
-    const safe = ['INVALID_PROJECT_STATE', 'TRANSLATION_LANGUAGE_NOT_SUPPORTED', 'TRANSLATION_SOURCE_NOT_SUPPORTED', 'SAME_SOURCE_TARGET_LANGUAGE', 'SOURCE_LANGUAGE_UNCONFIRMED', 'TRANSCRIPT_NOT_FOUND', 'TRANSCRIPT_REVISION_UNAVAILABLE', 'SOURCE_REVISION_MISMATCH', 'TRANSLATION_DRAFT_TOO_LARGE'];
+    const safe = ['PROJECT_TARGET_BUSY', 'INVALID_PROJECT_STATE', 'TRANSLATION_LANGUAGE_NOT_SUPPORTED', 'TRANSLATION_SOURCE_NOT_SUPPORTED', 'SAME_SOURCE_TARGET_LANGUAGE', 'SOURCE_LANGUAGE_UNCONFIRMED', 'TRANSCRIPT_NOT_FOUND', 'TRANSCRIPT_REVISION_UNAVAILABLE', 'SOURCE_REVISION_MISMATCH', 'TRANSLATION_DRAFT_TOO_LARGE'];
     return { ...base, reasonCodes: [...base.reasonCodes, error instanceof AppError && safe.includes(error.code) ? error.code : 'PREFLIGHT_UNAVAILABLE'] };
   }
 }

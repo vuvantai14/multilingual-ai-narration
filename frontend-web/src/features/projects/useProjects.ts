@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { projectRepository } from './projectRepository';
 import { collectionDataState } from './projectDataState';
 import type { Project, ProjectPagination, ProjectStatus } from './types';
+import { projectForTarget } from './targetWorkflow';
 export function useProjects() {
   const state = useSyncExternalStore(projectRepository.subscribe, projectRepository.getState, projectRepository.getState);
   useEffect(() => { void projectRepository.refresh(); }, []);
@@ -28,7 +29,7 @@ export function useProjectPage(input: { page: number; limit: number; search?: st
   return { projects, pagination, isLoading, error, dataState: collectionDataState(isLoading, error, projects.length), reload: () => setAttempt((value) => value + 1) };
 }
 
-export function useProject(projectId?: string) {
+export function useProject(projectId?: string, language?: string | null, resultView = false) {
   const cached = useSyncExternalStore(projectRepository.subscribe, projectRepository.getState, projectRepository.getState)
     .projects.find((project) => project.id === projectId);
   const [project, setProject] = useState<Project | undefined>(cached);
@@ -65,5 +66,5 @@ export function useProject(projectId?: string) {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể tải dự án.'); }
   }
 
-  return { project, isLoading, error, reload };
+  return { project: project ? projectForTarget(project, language, resultView) : project, isLoading, error, reload };
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const languageCatalogSchema = z.object({
-  code: z.enum(['vi', 'en', 'ja', 'ko', 'zh', 'fr']),
+  code: z.enum(['vi', 'en', 'ja', 'ko', 'zh']),
   name: z.string().trim().min(1).max(100),
   nativeName: z.string().trim().min(1).max(100),
   isActive: z.boolean(),
@@ -12,8 +12,7 @@ export const LANGUAGE_CATALOG: readonly CatalogRecord[] = Object.freeze([
   { code: 'en', name: 'Tiếng Anh', nativeName: 'English', isActive: true },
   { code: 'ja', name: 'Tiếng Nhật', nativeName: '日本語', isActive: true },
   { code: 'ko', name: 'Tiếng Hàn', nativeName: '한국어', isActive: true },
-  { code: 'zh', name: 'Tiếng Trung', nativeName: '中文', isActive: true },
-  { code: 'fr', name: 'Tiếng Pháp', nativeName: 'Français', isActive: true },
+  { code: 'zh', name: 'Tiếng Trung (giản thể)', nativeName: '简体中文', isActive: true },
 ].map(record => Object.freeze(languageCatalogSchema.parse(record))));
 
 export class LanguageCatalogError extends Error {

@@ -1,0 +1,4 @@
+{"event":"ACTUAL_SCOPE_08292b1cbdb62266bf8ce0a4a29c8243ee4dc6e5d611951d0d097d88e9831a80","at":"2026-11-06T03:33:02.794Z"}
+{"event":"ACTUAL_READY","at":"2026-11-06T03:33:02.796Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-06T03:33:02.797Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"GET\",\"route\":\"/api/projects/:id/media\",\"status\":404,\"code\":\"MEDIA_NOT_FOUND\"}","at":"2026-11-06T03:33:03.301Z"}

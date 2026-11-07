@@ -1,3 +1,4 @@
+import { TargetWorkflows } from '../features/projects/TargetWorkflows';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
@@ -22,7 +23,7 @@ export function VoicePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [params] = useSearchParams();
   const requestedLanguage = params.get('language');
-  const { project, isLoading, error } = useProject(projectId);
+  const { project, isLoading, error } = useProject(projectId, requestedLanguage);
   if (isLoading) return <Card><Spinner label="Đang tải dự án" /></Card>;
   if (error) return <Card><ErrorState title="Không thể tải dự án" description={error} /></Card>;
   if (!project) return <>
@@ -30,6 +31,7 @@ export function VoicePage() {
     <Card><ErrorState title="Không tìm thấy dự án" description="Dự án không tồn tại hoặc bạn không có quyền truy cập." />
       <Link className="button button--secondary button--md" to="/projects">Quay lại danh sách dự án</Link></Card>
   </>;
+  if (project.targetWorkflows && !requestedLanguage) return <TargetWorkflows project={project} />;
   const access = resolveWorkflowRouteAccess(project.workflow, 'VOICE', requestedLanguage);
   if (!access.allowed) return <><PageHeader title="Giọng đọc và thuyết minh" description="Chọn giọng đọc cho bản dịch." /><WorkflowRouteRecovery projectId={project.id} access={access} /></>;
   return <VoiceWorkspace key={project.id + (access.targetLanguage ?? '')} project={project} language={access.targetLanguage ?? undefined} canMutate={access.canMutate} notice={access.reason} />;

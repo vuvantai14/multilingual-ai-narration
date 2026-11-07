@@ -10,6 +10,7 @@ process.env.GROUP_TRANSLATION_ENABLED = 'true';
 process.env.CUSTOMER_TRANSLATION_ENABLED = 'false';
 const { candidateGroups, validatePlan, revision, outputDigest, assertStoredGroups, digest } = await import('../src/services/translation/group-plan.js');
 const { GroupDraftStore } = await import('../src/services/translation/group-draft-store.js');
+const { targetOperations } = await import('../src/services/target-operation.service.js');
 const { GroupTranslationService, groupTranslationService, assertApprovedCurrent } = await import('../src/services/translation/group-translation.service.js');
 const { SOURCE_SEGMENT_LIMIT } = await import('../src/services/translation/bounded-source.js');
 const { mapGroupResponse, GeminiGroupTranslationProvider } = await import('../src/services/translation/gemini-group-translation.provider.js');
@@ -110,6 +111,8 @@ test('schema legacy remains valid and grouped records require manual approval', 
 });
 
 test('service and real JWT routes with mock persistence only: preview/approve/legacy/TTS', async t => {
+  // Existing grouping unit fixture isolates the durable fence, tested separately.
+  t.mock.method(targetOperations, 'run', async (_project, _owner, _target, _kind, work) => work());
   const s = source(), owner = new Types.ObjectId().toString(), other = new Types.ObjectId().toString(), projectId = new Types.ObjectId().toString();
   (s as typeof s & { transcriptRevision: number }).transcriptRevision = 1;
   const project = { _id: new Types.ObjectId(projectId), userId: owner, sourceLanguage: 'vi', status: 'TRANSCRIBED' };

@@ -45,8 +45,12 @@ export type Project = {
   durationSeconds?: number
   metadataState?: ProjectMetadataState
   workflow?: ProjectWorkflow
+  targetWorkflows?: TargetWorkflow[]
   updatedAt: string
   createdAt?: string
 }
+
+export type TargetWorkflow = { targetLanguage: string; status: 'NOT_STARTED' | 'TRANSLATING' | 'AWAITING_REVIEW' | 'TRANSLATED' | 'GENERATING_AUDIO' | 'AUDIO_READY' | 'PROCESSING_VIDEO' | 'COMPLETED' | 'FAILED' | 'BLOCKED';
+  failureCode: string | null; workflow: ProjectWorkflow; translationIds: string[]; narrationIds: string[]; resultIds: string[] }
 
 export type ProjectStatistics = { total: number; completed: number; processing: number; failed: number }

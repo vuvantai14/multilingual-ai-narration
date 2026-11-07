@@ -1,0 +1,16 @@
+{"event":"ACTUAL_SCOPE_79dc5be05e49cd08e963b20d82e89050e9505b2921814b13b7e399d11483f71d","at":"2026-11-07T00:13:32.571Z"}
+{"event":"ACTUAL_READY","at":"2026-11-07T00:13:32.572Z"}
+{"event":"ACTUAL_CONNECTED","at":"2026-11-07T00:13:32.573Z"}
+{"event":"ACTUAL_WRITER_Project","at":"2026-11-07T00:13:33.047Z"}
+{"event":"ACTUAL_NATIVE_Project_projects_insertOne_a422cff25b1142bc13673e3b2f344a06d2871e02e7be3352ecd850ba6c4bb450","at":"2026-11-07T00:13:33.056Z"}
+{"event":"ACTUAL_NATIVE_Project_activitylogs_insertOne_c7c338e42cb2dc67914455b7793d248ed9ec294051dc716af807bc252cf35100","at":"2026-11-07T00:13:33.059Z"}
+{"event":"ACTUAL_DONE_Project","at":"2026-11-07T00:13:33.060Z"}
+{"event":"ACTUAL_WRITER_Media","at":"2026-11-07T00:13:33.519Z"}
+{"event":"STORAGE_CLAIM_actual-input-once","at":"2026-11-07T00:13:33.533Z"}
+{"event":"STORAGE_DONE_actual-input-once","at":"2026-11-07T00:13:33.539Z"}
+{"event":"S33_MEDIA_IDENTITY_CLAIM_{\"sha256\":\"79840b5c1405298cb0331645f36cb60450188ef5e17f327e4b007328dc4a0f93\",\"bytes\":22239,\"duration\":2,\"mime\":\"video/mp4\"}","at":"2026-11-07T00:13:33.651Z"}
+{"event":"ACTUAL_NATIVE_Media_media_findOneAndUpdate_1b62bd5cfede0f71dda590bda84c2fb721b2f7827464246cb155968d1f8e25af","at":"2026-11-07T00:13:33.667Z"}
+{"event":"ACTUAL_NATIVE_Media_projects_updateOne_fe089f2d09ab6df1d47d6d27b792a076d69e7b100bde836e424a35f7e11c6210","at":"2026-11-07T00:13:33.670Z"}
+{"event":"ACTUAL_NATIVE_Media_activitylogs_insertOne_126a0033d36dc4f314547ed71d7e72c3d26626b9723499a8fb2d24c7b42c6c18","at":"2026-11-07T00:13:33.671Z"}
+{"event":"ACTUAL_DONE_Media","at":"2026-11-07T00:13:33.672Z"}
+{"event":"ACTUAL_FIRST_REQUEST_STOP_{\"method\":\"POST\",\"route\":\"/api/projects/:id/media\",\"status\":500,\"code\":\"INTERNAL_SERVER_ERROR\"}","at":"2026-11-07T00:13:33.682Z"}

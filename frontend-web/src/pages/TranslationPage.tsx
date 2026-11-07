@@ -1,3 +1,4 @@
+import { TargetWorkflows } from '../features/projects/TargetWorkflows';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
@@ -28,7 +29,7 @@ export function TranslationPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [params] = useSearchParams();
   const language = params.get('language');
-  const { project, isLoading, error } = useProject(projectId);
+  const { project, isLoading, error } = useProject(projectId, language);
   if (isLoading) return <Card><Spinner label="Đang tải dự án" /></Card>;
   if (error) return <Card><ErrorState title="Không thể tải dự án" description={error} /></Card>;
   if (!project) return <>
@@ -38,11 +39,12 @@ export function TranslationPage() {
     </Card>
   </>;
   if (!sourceState(project).confirmed) return <><PageHeader title="Bản dịch" /><Card><h2>Cần xác nhận ngôn ngữ nguồn</h2><p>Hãy đọc bản ghi và xác nhận ngôn ngữ chính trước khi bắt đầu dịch.</p><Link className="button button--primary button--md" to={`/projects/${project.id}/transcript`}>Kiểm tra bản ghi và xác nhận nguồn</Link></Card></>;
+  if (project.targetWorkflows && !language) return <TargetWorkflows project={project} />;
   const access = resolveWorkflowRouteAccess(project.workflow, 'TRANSLATION', language);
   if (!access.allowed) return <><PageHeader title="Bản dịch" /><WorkflowRouteRecovery projectId={project.id} access={access} /></>;
   const preferredTarget = language?.trim().toLowerCase() || access.targetLanguage || '';
-  const simplePreflight = <CustomerSimplePreflight key={project.id + preferredTarget} projectId={project.id} targetLanguage={preferredTarget} />;
-  if (import.meta.env.VITE_CUSTOMER_TRANSLATION_ENABLED === 'true') return <div className="translation-page"><GroupTranslationWorkspace key={project.id + preferredTarget} project={project} preferredTarget={preferredTarget} canMutate={access.canMutate} notice={access.reason} customerMode />{simplePreflight}</div>;
+  const simplePreflight = <CustomerSimplePreflight key={'preflight:' + project.id + ':' + preferredTarget} projectId={project.id} targetLanguage={preferredTarget} />;
+  if (import.meta.env.VITE_CUSTOMER_TRANSLATION_ENABLED === 'true') return <div className="translation-page"><GroupTranslationWorkspace key={'workspace:' + project.id + ':' + preferredTarget} project={project} preferredTarget={preferredTarget} canMutate={access.canMutate} notice={access.reason} customerMode />{simplePreflight}</div>;
   return <div className="translation-page"><TranslationSourcePreflight key={project.id + preferredTarget} projectId={project.id}>{_blockGeneration =>
     import.meta.env.VITE_GROUP_TRANSLATION_ENABLED === 'true'
       ? <GroupTranslationWorkspace project={project} preferredTarget={preferredTarget} canMutate={access.canMutate} notice={access.reason} blockGeneration={false} />

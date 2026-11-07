@@ -15,7 +15,7 @@ export const narrationService = {
     const translation = await translationService.getSavedTranslation(projectId, language, { signal: options.signal });
     if (!translation) return null;
     const response = await api<{ narrations: NarrationDto[] }>(`/projects/${projectId}/narrations`, { signal: options.signal });
-    const narration = [...response.narrations].reverse().find((item) => item.targetLanguage === translation.targetLanguage); if (!narration) return null;
+    const narration = [...response.narrations].reverse().find((item) => item.targetLanguage === translation.targetLanguage && item.translationId === translation.id); if (!narration) return null;
     return { projectId, translationId: translation.id, languageCode: translation.targetLanguage, voiceId: narration.voice.id, speed: narration.speed, translationRevision: translationRevision(translation), narrationId: narration.id };
   },
   async saveConfig(projectId: string, config: NarrationConfig, options: RequestOptions = {}): Promise<NarrationConfig> {
@@ -25,15 +25,12 @@ export const narrationService = {
         config.translationRevision !== translationRevision(translation)) {
       throw new Error('Bản dịch đã thay đổi hoặc không còn khả dụng. Hãy quay lại Bản dịch rồi mở lại Giọng đọc.');
     }
-    let effectiveConfig = config;
-    if (!voices.some((v) => v.id === effectiveConfig.voiceId && v.isActive && v.languageCode === effectiveConfig.languageCode)) {
-      const fallbackVoice = voices.find((v) => v.isActive && v.languageCode === effectiveConfig.languageCode) || voices[0];
-      if (fallbackVoice) effectiveConfig = { ...effectiveConfig, voiceId: fallbackVoice.id };
-    }
+    const effectiveConfig = config;
     const error = validateNarrationConfig(effectiveConfig, voices);
     if (error) throw new Error(error);
     requireConfirmation(window.confirm, confirmationMessages.narration);
-    const response = await api<{ narration: NarrationDto }>(`/projects/${projectId}/narrations`, { method: 'POST', signal: options.signal, body: JSON.stringify({ targetLanguage: effectiveConfig.languageCode, voiceId: effectiveConfig.voiceId }) });
+    const response = await api<{ narration: NarrationDto }>(`/projects/${projectId}/narrations`, { method: 'POST', signal: options.signal, body: JSON.stringify({ targetLanguage: effectiveConfig.languageCode, voiceId: effectiveConfig.voiceId }) }, false);
+    if (response.narration.translationId !== translation.id || response.narration.targetLanguage !== config.languageCode || response.narration.voice.id !== config.voiceId) throw new Error('Narration configuration does not match the selected target.');
     return { ...effectiveConfig, speed: response.narration.speed, narrationId: response.narration.id };
   },
 };

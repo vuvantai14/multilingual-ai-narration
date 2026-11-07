@@ -1,3 +1,4 @@
+import { TargetWorkflows } from '../features/projects/TargetWorkflows';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/common/Badge';
@@ -28,7 +29,7 @@ export function GeneratePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [params] = useSearchParams();
   const language = params.get('language');
-  const { project, isLoading, error } = useProject(projectId);
+  const { project, isLoading, error } = useProject(projectId, language);
   if (isLoading) return <Card><Spinner label="Đang tải dự án" /></Card>;
   if (error) return <Card><ErrorState title="Không thể tải dự án" description={error} /></Card>;
   if (!project) return <>
@@ -37,6 +38,7 @@ export function GeneratePage() {
       <Link className="button button--secondary button--md" to="/projects">Quay lại danh sách dự án</Link>
     </Card>
   </>;
+  if (project.targetWorkflows && !language) return <TargetWorkflows project={project} />;
   const access = resolveWorkflowRouteAccess(project.workflow, 'GENERATE', language);
   if (!access.allowed) return <><PageHeader title="Tạo thuyết minh" description="Kiểm tra cấu hình thuyết minh đã lưu." /><WorkflowRouteRecovery projectId={project.id} access={access} /></>;
   return <GenerateWorkspace key={project.id + (access.targetLanguage ?? '')} project={project} language={access.targetLanguage ?? undefined} canMutate={access.canMutate} notice={access.reason} />;

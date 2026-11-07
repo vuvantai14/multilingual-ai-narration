@@ -1,3 +1,6 @@
+import { attestE2eFailure } from '../e2e-runtime-boundary.js';
+import { runQuotaTransaction } from '../e2e-quota-transaction.js';
+import { e2eRunEnabled } from '../e2e-test-run.js';
 import { TranslationAttempt } from '../../models/TranslationAttempt.js';
 import { AppError } from '../../utils/app-error.js';
 import { digest } from './group-plan.js';
@@ -41,11 +44,14 @@ const repository = {
       throw new AppError(503, 'TRANSLATION_QUOTA_UNAVAILABLE', 'Không xác nhận được hạn mức dịch. Chưa gọi Gemini; không tự thử lại.');
     });
     try {
-      await session.withTransaction(async () => {
+      await runQuotaTransaction(session, { ...s, day }, async () => {
         const filter = { _id: key(s), state: 'CLAIMED', executionVersion: 1 };
         const row = await TranslationAttempt.collection.findOne(filter as never, { session, projection: { quotaReserved: 1 } });
         if (!row) throw uncertain();
-        if (row.quotaReserved === true) return; // Durable per-attempt receipt, no double charge.
+        if (row.quotaReserved === true) {
+          if (e2eRunEnabled()) throw uncertain(); // Controlled run never resumes a reservation.
+          return; // Ordinary durable receipt remains idempotent.
+        }
         for (const [id, cap] of [[`customer-day:${s.ownerId}:${day}`, policy.perUser], [`customer-global-day:${day}`, policy.global]] as const) {
           try {
             const result = await TranslationAttempt.collection.updateOne({ _id: id, count: { $lt: cap } } as never,
@@ -59,6 +65,9 @@ const repository = {
         const receipt = await TranslationAttempt.collection.updateOne({ ...filter, quotaReserved: { $ne: true } } as never,
           { $set: { quotaReserved: true, quotaDay: day } } as never, { session });
         if (receipt.modifiedCount !== 1) throw uncertain();
+      }, async () => {
+        const committed = await TranslationAttempt.collection.findOne({ _id: key(s) } as never, { readConcern: { level: 'majority' }, projection: { ownerId: 1, projectId: 1, targetLanguage: 1, sourceRevision: 1, quotaReserved: 1, quotaDay: 1 } });
+        return committed ? { ownerId: committed.ownerId, projectId: committed.projectId, targetLanguage: committed.targetLanguage, sourceRevision: committed.sourceRevision, quotaReserved: committed.quotaReserved, quotaDay: committed.quotaDay } : null;
       }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority', j: true } });
     } catch (error) {
       if (error instanceof AppError && error.code === 'TRANSLATION_DAILY_LIMIT') throw error;
@@ -74,6 +83,7 @@ const repository = {
     if (result.modifiedCount !== 1) throw uncertain();
   },
   fail: async (s: AttemptScope, binding: string, state: string, phase: ExecutionPhase, diagnosticCode: string, providerHttpStatus: number | null, providerDiagnostic?: ProviderDiagnostic, transportDiagnostic?: TransportDiagnostic) => {
+    attestE2eFailure('Translation',{state,phase,diagnosticCode,providerHttpStatus,...(providerDiagnostic?{providerDiagnostic}:{}),...(transportDiagnostic?{transportDiagnostic}:{})});
     // Never overwrite an already persisted draft after a lost acknowledgement.
     const result = await TranslationAttempt.updateOne({ _id: key(s), binding, state: 'CLAIMED', executionVersion: 1 }, { $set: { state, phase, diagnosticCode, failedAt: new Date(), ...(providerHttpStatus ? { providerHttpStatus } : {}), ...(providerDiagnostic ? { providerDiagnostic } : {}), ...(transportDiagnostic ? { transportDiagnostic } : {}) } }, { writeConcern: { w: 'majority', j: true } });
     return result.matchedCount === 1;
