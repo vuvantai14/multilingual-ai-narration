@@ -2,7 +2,7 @@
 
 ## START HERE — CURRENT PROJECT STATUS
 
-Updated 2026-11-15 (Asia/Bangkok), task S42.3H. This section takes precedence over
+Updated 2026-11-15 (Asia/Bangkok), task S42.3I. This section takes precedence over
 older sprint/status snapshots below; historical entries are not current authorization.
 
 1. Read this file and [CONTEXT.md](CONTEXT.md) before continuing.
@@ -11,7 +11,43 @@ older sprint/status snapshots below; historical entries are not current authoriz
 4. Perform only the next task explicitly requested by the user. Static acceptance is not runtime acceptance.
 5. Do not commit, push, merge, deploy, invoke paid AI, or mutate shared data without concrete authorization.
 
-### Latest — S42.3H Mobile publication parity — STATIC PASS (2026-11-15)
+### Latest — S42.3I PR #11 Admin Web CI fix (2026-11-15)
+
+- Current branch `feature/public-video-narration`, HEAD
+  `9922863eb7b7c2ee2400e15e6e2548d1000a0423`, matching PR #11 HEAD. Working tree
+  was clean at preflight; earlier uncommitted/main references below are historical.
+  This task does not checkout, fetch/pull, commit, push or merge.
+- Confirmed directly from GitHub Actions logs: CI V1 run
+  [43678343769](https://github.com/vuvantai14/multilingual-ai-narration/actions/runs/43678343769),
+  Admin Web job `132703320561`. Install/lint/typecheck succeeded. The failed step
+  is `Test (network guard inherited by npm and Node tests)` (`npm test`); build
+  was skipped. GitHub connector/public PR access returned 404; logs were retrieved
+  read-only through existing noninteractive Git authentication. No credential was
+  printed or persisted into source/docs.
+- Exact failure: `Project list and detail render unknown source without inventing
+  a source or changing status`, `admin-web/tests/project-source-language.test.mjs:65`.
+  Its recursive VM compiler imported the new VideoPublicationModal, then the video
+  control/service/API client. The fixture's existing `Live API access is forbidden
+  in this test` import guard correctly rejected that dependency. This is a missing
+  fixture mock, not evidence of a live HTTP call or a Linux-specific application bug.
+- Minimal fix: add only the `VideoPublicationModal: () => null` override alongside
+  the existing audio modal overrides for the project-list fixture. All source-language
+  assertions and import/network guards remain unchanged. Production UI, services,
+  Backend/Web/Mobile, publication policy and CI workflow are untouched.
+- Reproduction: exact focused source-language file under CI network preload FAIL,
+  2/3 passing with the same error/stack as GitHub. After the one-line fix, actual
+  Admin `npm test` with CI_NETWORK_GUARD=1 and inherited NODE_OPTIONS preload PASS,
+  **56/56 tests**, including the formerly failing case. Local Vite fixtures printed
+  nonfatal port-24678 warnings; no unrelated port/configuration change was made.
+- The subsequent Admin build (TypeScript + Vite), skipped in the failed hosted
+  job, also PASS locally. Final git diff --check PASS.
+- Local Node is 24.22.1; CI pins 22.23.3. Hosted success is pending a user-authorized
+  commit/push and subsequent CI run. No hosted rerun was triggered automatically.
+- Files for I: the test above and this PROGRESS entry only. Documentation/targeted
+  checks do not authorize a runtime publication test. F2 live acceptance remains
+  independently unverified; preserve the existing handoff in CONTEXT.md.
+
+### S42.3H Mobile publication parity — STATIC PASS (2026-11-15)
 
 - Scope verified **CUSTOMER**, not ADMIN: Mobile `authService.login` rejects
   non-CUSTOMER before saving a session; `useCurrentUser` checks the same role.
